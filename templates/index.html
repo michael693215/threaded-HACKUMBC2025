@@ -71,6 +71,7 @@
   <header class="nav"><div class="brand">Threaded</div></header>
 
   <div class="toolbar">
+    <!-- Wardrobe -->
     <nav class="menu">
       <button class="menu-btn" id="wardrobeBtn" aria-expanded="false" aria-controls="wardrobeDrop">Wardrobe ▼</button>
       <div class="dropdown" id="wardrobeDrop" role="menu" aria-labelledby="wardrobeBtn">
@@ -83,6 +84,7 @@
       </div>
     </nav>
 
+    <!-- Outfits -->
     <nav class="menu">
       <button class="menu-btn" id="outfitsBtn" aria-expanded="false" aria-controls="outfitsDrop">Outfits ▼</button>
       <div class="dropdown" id="outfitsDrop" role="menu" aria-labelledby="outfitsBtn">
@@ -91,6 +93,11 @@
           <a href="/outfits/saved">Saved Outfits</a>
         </div>
       </div>
+    </nav>
+
+    <!-- Shop AI -->
+    <nav class="menu">
+      <a class="menu-btn" href="/shop">Shop AI</a>
     </nav>
   </div>
 
@@ -123,18 +130,8 @@
     const LS_V3 = 'threadedfits_state_v3';
     const LS_V2 = 'threadedfits_state_v2';
     function loadState() {
-      try {
-        const raw3 = localStorage.getItem(LS_V3);
-        if (raw3) { const s=JSON.parse(raw3); sanitizeState(s); return s; }
-      } catch {}
-      try {
-        const raw2 = localStorage.getItem(LS_V2);
-        if (raw2) {
-          const s2 = JSON.parse(raw2);
-          const s3 = { folders: s2.folders || [], outfits: [] };
-          sanitizeState(s3); saveState(s3); return s3;
-        }
-      } catch {}
+      try { const raw3 = localStorage.getItem(LS_V3); if (raw3) { const s=JSON.parse(raw3); sanitizeState(s); return s; } } catch {}
+      try { const raw2 = localStorage.getItem(LS_V2); if (raw2) { const s2 = JSON.parse(raw2); const s3 = { folders: s2.folders || [], outfits: [] }; sanitizeState(s3); saveState(s3); return s3; } } catch {}
       const empty = { folders: [], outfits: [] }; saveState(empty); return empty;
     }
     function sanitizeState(s) {
@@ -151,18 +148,33 @@
     const wardrobeDrop = document.getElementById('wardrobeDrop');
     const outfitsBtn  = document.getElementById('outfitsBtn');
     const outfitsDrop = document.getElementById('outfitsDrop');
+
     function toggle(el, open) { el.classList.toggle('open', open !== undefined ? open : !el.classList.contains('open')); }
+
+    // Open/close toggles
     wardrobeBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(wardrobeDrop); toggle(outfitsDrop,false); });
     outfitsBtn.addEventListener('click',  (e)=>{ e.stopPropagation(); toggle(outfitsDrop);  toggle(wardrobeDrop,false); });
+
+    // 🔧 FIX: Keep dropdown open when clicking inside it (inputs, buttons)
+    wardrobeDrop.addEventListener('click', (e)=> e.stopPropagation());
+    outfitsDrop.addEventListener('click',  (e)=> e.stopPropagation());
+
+    // Global click closes ONLY if click is outside (because inside is stopped above)
     document.addEventListener('click', ()=>{ toggle(wardrobeDrop,false); toggle(outfitsDrop,false); });
 
     // ---------- Wardrobe list & creation ----------
     const foldersEl = document.getElementById('folders');
     const newFolderNameEl = document.getElementById('newFolderName');
     const createFolderBtn = document.getElementById('createFolderBtn');
+
     function renderFoldersList() {
       foldersEl.innerHTML = '';
-      if (!state.folders.length) { const empty = document.createElement('div'); empty.className='hint'; empty.textContent='No folders yet.'; foldersEl.appendChild(empty); return; }
+      if (!state.folders.length) {
+        const empty = document.createElement('div');
+        empty.className='hint'; empty.textContent='No folders yet.';
+        foldersEl.appendChild(empty);
+        return;
+      }
       state.folders.forEach(f => {
         const row = document.createElement('div'); row.className='folder-item';
         const left = document.createElement('div'); left.className='folder-name';
@@ -179,13 +191,19 @@
         row.appendChild(left); row.appendChild(del); foldersEl.appendChild(row);
       });
     }
+
     function createFolder(name) {
       const n=(name||'').trim(); if(!n) return;
       state.folders.unshift({ id: uid(), name:n, images:[] });
-      saveState(state); renderFoldersList(); renderFolderSelect(); newFolderNameEl.value='';
+      saveState(state);
+      renderFoldersList();
+      renderFolderSelect();
+      newFolderNameEl.value='';
     }
-    createFolderBtn.addEventListener('click', ()=>createFolder(newFolderNameEl.value));
-    newFolderNameEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter') createFolder(newFolderNameEl.value); });
+
+    // 🔧 Also stop propagation on these so the dropdown doesn't close on click/Enter
+    createFolderBtn.addEventListener('click', (e)=>{ e.stopPropagation(); createFolder(newFolderNameEl.value); });
+    newFolderNameEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.stopPropagation(); createFolder(newFolderNameEl.value); } });
 
     // ---------- Upload -> selected folder ----------
     const uploadForm = document.getElementById('uploadForm');
@@ -193,8 +211,16 @@
     const destFolder = document.getElementById('destFolder');
     function renderFolderSelect() {
       destFolder.innerHTML = '';
-      if (!state.folders.length) { const opt=document.createElement('option'); opt.value=''; opt.textContent='— create a folder in Wardrobe —'; destFolder.appendChild(opt); return; }
-      state.folders.forEach(f => { const opt=document.createElement('option'); opt.value=f.id; opt.textContent=f.name; destFolder.appendChild(opt); });
+      if (!state.folders.length) {
+        const opt=document.createElement('option');
+        opt.value=''; opt.textContent='— create a folder in Wardrobe —';
+        destFolder.appendChild(opt);
+        return;
+      }
+      state.folders.forEach(f => {
+        const opt=document.createElement('option'); opt.value=f.id; opt.textContent=f.name;
+        destFolder.appendChild(opt);
+      });
     }
     uploadForm.addEventListener('submit', (e)=>{
       e.preventDefault();
@@ -218,6 +244,7 @@
     const nextBtn  = document.getElementById('nextBtn');
     const counter  = document.getElementById('counter');
     let recent=[]; let currentIndex=0;
+
     function rebuildRecent() {
       recent = state.folders.flatMap(f => (f.images||[]).map(img => ({ src: img.src || img, ts: img.ts || Date.now() })));
       recent.sort((a,b)=>b.ts-a.ts);
@@ -227,7 +254,7 @@
     function renderCarousel() {
       [...carousel.querySelectorAll('img')].forEach(n=>n.remove());
       if(!recent.length){ counter.textContent='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; return; }
-      const img=document.createElement('img'); img.src=recent[currentIndex].src; img.alt='Recent '+(currentIndex+1); img.classList.add('active');
+      const img=document.createElement('img'); img.src = recent[currentIndex].src; img.alt='Recent '+(currentIndex+1); img.classList.add('active');
       carousel.insertBefore(img, prevBtn);
       counter.textContent=(currentIndex+1)+' / '+recent.length;
       const multi=recent.length>1; prevBtn.disabled=!multi; nextBtn.disabled=!multi;

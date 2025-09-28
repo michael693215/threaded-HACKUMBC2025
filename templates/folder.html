@@ -9,7 +9,6 @@
   * { box-sizing:border-box; }
   body { margin:0; font-family: system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:#222; }
 
-  /* Header: brand left, Back button right */
   .nav { background:#fff; border-bottom:1px solid #eee; padding:18px 16px;
          display:flex; align-items:center; justify-content:space-between; }
   .brand { font-weight:700; color:var(--purple); font-size:22px; }
@@ -17,7 +16,6 @@
   .btn.primary { background: var(--purple-2); color:#fff; }
   .btn.danger { background:#e35c5c; color:#fff; }
 
-  /* Toolbar (below header) same as Home; Wardrobe links home */
   .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
   .menu { position:relative; }
   .menu-btn {
@@ -65,6 +63,7 @@
         </div>
       </div>
     </nav>
+    <nav class="menu"><a class="menu-btn" href="/shop">Shop AI</a></nav>
   </div>
 
   <main>
@@ -80,14 +79,12 @@
   </main>
 
 <script>
-  // Outfits dropdown
   const outfitsBtn = document.getElementById('outfitsBtn');
   const outfitsDrop = document.getElementById('outfitsDrop');
   function toggle(el, open){ el.classList.toggle('open', open!==undefined?open:!el.classList.contains('open')); }
   outfitsBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(outfitsDrop); });
   document.addEventListener('click', ()=>toggle(outfitsDrop,false));
 
-  // Persistence (v3)
   const LS_V3 = 'threadedfits_state_v3', LS_V2='threadedfits_state_v2';
   function loadState(){
     try{ const r3=localStorage.getItem(LS_V3); if(r3){ const s=JSON.parse(r3); sanitize(s); return s; } }catch{}

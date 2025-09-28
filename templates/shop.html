@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>threadedfits — Shop AI</title>
+<style>
+  :root { --purple:#5a2d82; --purple-2:#8a2be2; --bg:#f7f7fb; --card:#fff; --muted:#777; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:#222; }
+
+  .nav { background:#fff; border-bottom:1px solid #eee; padding:18px 16px; }
+  .brand { font-weight:700; color:var(--purple); font-size:22px; }
+
+  .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
+  .menu { position:relative; }
+  .menu-btn {
+    display:inline-flex; align-items:center; gap:8px; background: var(--purple-2); color:#fff;
+    border:none; border-radius:8px; padding:8px 12px; cursor:pointer; text-decoration:none;
+  }
+  .menu-btn:hover { filter: brightness(.95); }
+
+  main { max-width:1100px; margin:16px auto; padding:0 16px; }
+  h2 { color:var(--purple); }
+
+  .chat-wrap { display:grid; grid-template-columns: 1fr; gap:12px; margin-bottom:14px; }
+  .chat { background:#fff; border:1px solid #eee; border-radius:12px; padding:12px; max-height: 300px; overflow:auto; }
+  .msg { display:flex; gap:8px; margin-bottom:8px; }
+  .from { font-weight:700; color:var(--purple); min-width:70px; }
+  .bubble { background:#f7f2ff; border:1px solid #eadcff; padding:8px 10px; border-radius:10px; white-space:pre-wrap; }
+  .input-row { display:flex; gap:8px; }
+  .input-row input { flex:1; padding:10px; border:1px solid #ddd; border-radius:8px; }
+  .send-btn { padding:10px 14px; border:none; border-radius:8px; background:var(--purple-2); color:#fff; cursor:pointer; }
+
+  .results { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+  .card { background:#fff; border:1px solid #eee; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+  .card img { width:100%; height:180px; object-fit:cover; background:#fafafa; }
+  .card .content { padding:10px; display:flex; flex-direction:column; gap:6px; }
+  .links { display:flex; flex-wrap:wrap; gap:6px; }
+  .links a { background:#efeffa; border:1px solid #ddd; padding:6px 8px; border-radius:8px; text-decoration:none; color:#222; font-size:13px; }
+  .hint { color:var(--muted); font-size:12px; margin-bottom:8px; }
+  .error { color:#b00020; }
+</style>
+</head>
+<body>
+  <header class="nav"><div class="brand">Threaded</div></header>
+
+  <div class="toolbar">
+    <nav class="menu"><a class="menu-btn" href="/">Wardrobe</a></nav>
+    <nav class="menu">
+      <a class="menu-btn" href="/outfits/create">Outfits</a>
+    </nav>
+    <nav class="menu"><a class="menu-btn" href="/shop">Shop AI</a></nav>
+  </div>
+
+  <main>
+    <h2>Shop AI</h2>
+    <p class="hint">
+      Tell me what you’re looking for (e.g., “black leather jacket under $150, streetwear vibe”).
+      I’ll use AI to refine your intent and show ideas with buy links.
+    </p>
+
+    <div class="chat-wrap">
+      <div class="chat" id="chat"></div>
+      <div class="input-row">
+        <input id="userInput" type="text" placeholder="Type what you want…"/>
+        <button class="send-btn" id="sendBtn">Send</button>
+      </div>
+    </div>
+
+    <section class="results" id="results"></section>
+  </main>
+
+<script>
+  // --- UI refs ---
+  const chat = document.getElementById('chat');
+  const input = document.getElementById('userInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const results = document.getElementById('results');
+
+  // We keep a minimal chat history compatible with the /api/shop endpoint
+  const history = [
+    { role: "system", content: "You are a helpful stylist." }
+  ];
+
+  function addMsg(sender, text) {
+    const row = document.createElement('div'); row.className='msg';
+    const from = document.createElement('div'); from.className='from'; from.textContent = sender+':';
+    const bubble = document.createElement('div'); bubble.className='bubble'; bubble.textContent = text;
+    row.appendChild(from); row.appendChild(bubble); chat.appendChild(row);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function retailerLinks(q, budget) {
+    const enc = encodeURIComponent(q + (budget ? ` under $${budget}` : ''));
+    return [
+      { name:'Amazon', url:`https://www.amazon.com/s?k=${enc}` },
+      { name:'eBay', url:`https://www.ebay.com/sch/i.html?_nkw=${enc}` },
+      { name:'Etsy', url:`https://www.etsy.com/search?q=${enc}` },
+      { name:'Google Shopping', url:`https://www.google.com/search?tbm=shop&q=${enc}` },
+    ];
+  }
+
+  function renderResults(queries, budget) {
+    results.innerHTML = '';
+    const qs = Array.isArray(queries) ? queries.slice(0, 8) : [];
+    if (!qs.length) return;
+
+    qs.forEach((q, i) => {
+      const card = document.createElement('div'); card.className='card';
+      const img = document.createElement('img');
+      img.src = `https://source.unsplash.com/400x400/?${encodeURIComponent(q)}&sig=${i+1}`;
+      img.alt = q;
+
+      const content = document.createElement('div'); content.className='content';
+      const title = document.createElement('div'); title.textContent = q;
+      const linkRow = document.createElement('div'); linkRow.className='links';
+      retailerLinks(q, budget).forEach(l => {
+        const a = document.createElement('a'); a.href = l.url; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent = l.name;
+        linkRow.appendChild(a);
+      });
+
+      content.appendChild(title);
+      content.appendChild(linkRow);
+      card.appendChild(img);
+      card.appendChild(content);
+      results.appendChild(card);
+    });
+  }
+
+  async function callShoppingAI(userText) {
+    // push user turn
+    history.push({ role: "user", content: userText });
+
+    try {
+      const resp = await fetch("/api/shop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({}));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      // data: { item, color, style, budget, queries[], response }
+      addMsg("Shop AI", data.response || "Here are some ideas.");
+      renderResults(data.queries || [], data.budget || null);
+
+      // Keep a short assistant echo in the conversation
+      history.push({ role: "assistant", content: data.response || "" });
+    } catch (e) {
+      // Fallback if API not configured or errors out
+      addMsg("Shop AI", `I couldn't reach the shopping AI (${e.message}). Here's a quick local search instead.`);
+      // naive fallback: just use the user's text as a single query
+      renderResults([userText], null);
+    }
+  }
+
+  function send() {
+    const val = input.value.trim();
+    if (!val) return;
+    input.value = '';
+    addMsg("You", val);
+    callShoppingAI(val);
+  }
+
+  sendBtn.addEventListener('click', send);
+  input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') send(); });
+
+  // Greeting
+  addMsg('Shop AI', 'Hey! What are you shopping for today? (Example: “black leather jacket under $150, streetwear vibe”.)');
+</script>
+</body>
+</html>

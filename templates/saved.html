@@ -38,9 +38,7 @@
     box-shadow: 0 2px 8px rgba(0,0,0,.06); cursor:pointer; display:flex; flex-direction:column; gap:8px;
   }
   .card.selected { border-color: var(--purple-2); box-shadow: 0 0 0 2px rgba(138,43,226,.15); }
-  .preview {
-    width:100%; aspect-ratio: 4/3; object-fit:cover; border-radius:8px; background:#eee;
-  }
+  .preview { width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; background:#eee; }
   .name { font-weight:700; }
   .meta { color:var(--muted); font-size:12px; }
   .empty { color:var(--muted); }
@@ -60,6 +58,7 @@
         </div>
       </div>
     </nav>
+    <nav class="menu"><a class="menu-btn" href="/shop">Shop AI</a></nav>
   </div>
 
   <main>
@@ -69,14 +68,12 @@
   </main>
 
 <script>
-  // Dropdown
   const outfitsBtn=document.getElementById('outfitsBtn');
   const outfitsDrop=document.getElementById('outfitsDrop');
   function toggle(el, open){ el.classList.toggle('open', open!==undefined?open:!el.classList.contains('open')); }
   outfitsBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(outfitsDrop); });
   document.addEventListener('click', ()=>toggle(outfitsDrop,false));
 
-  // Persistence
   const LS_V3='threadedfits_state_v3', LS_V2='threadedfits_state_v2';
   function loadState(){
     try{ const r3=localStorage.getItem(LS_V3); if(r3){ return JSON.parse(r3); } }catch{}
@@ -98,16 +95,10 @@
     emptyMsg.style.display = outfits.length ? 'none' : 'block';
     outfits.forEach(o=>{
       const card=document.createElement('div'); card.className='card'; card.tabIndex=0;
-
-      const img=document.createElement('img'); img.className='preview';
-      img.src = o.preview || '';
-      if (!o.preview) img.alt='No preview available';
-
+      const img=document.createElement('img'); img.className='preview'; img.src = o.preview || ''; if (!o.preview) img.alt='No preview available';
       const name=document.createElement('div'); name.className='name'; name.textContent=o.name||'Untitled';
       const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${o.items?.length||0} items • ${fmtTime(o.createdAt||Date.now())}`;
-
       card.appendChild(img); card.appendChild(name); card.appendChild(meta);
-
       card.addEventListener('click', ()=>{
         document.querySelectorAll('.card').forEach(c=>c.classList.remove('selected'));
         card.classList.add('selected');

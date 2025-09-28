@@ -8,10 +8,8 @@
   :root { --purple:#5a2d82; --purple-2:#8a2be2; --bg:#f7f7fb; --card:#fff; --muted:#777; }
   * { box-sizing:border-box; }
   body { margin:0; font-family: system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:#222; }
-
   .nav { background:#fff; border-bottom:1px solid #eee; padding:18px 16px; }
   .brand { font-weight:700; color:var(--purple); font-size:22px; }
-
   .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
   .menu { position:relative; }
   .menu-btn {
@@ -28,34 +26,18 @@
   .dropdown.open { display:block; }
   .menu-list a { display:block; padding:8px 10px; border-radius:8px; text-decoration:none; color:#222; }
   .menu-list a:hover { background:#f2f2f7; }
-
   .layout { display:grid; grid-template-columns: 1fr 320px; gap:14px; max-width:1200px; margin:16px auto; padding:0 16px; }
-  .canvas-wrap {
-    background:#ededf3; border:1px dashed #cfcfe8; border-radius:12px; min-height:560px;
-    position:relative; overflow:hidden;
-  }
+  .canvas-wrap { background:#ededf3; border:1px dashed #cfcfe8; border-radius:12px; min-height:560px; position:relative; overflow:hidden; }
   .canvas-toolbar { display:flex; gap:10px; padding:8px; align-items:center; }
   .save-btn { background:var(--purple-2); color:#fff; border:none; border-radius:8px; padding:8px 12px; cursor:pointer; }
   .save-btn:hover { filter:brightness(.95); }
   .hint { color:var(--muted); font-size:12px; }
-
-  .item {
-    position:absolute; touch-action:none;
-    border:1px solid transparent; border-radius:10px;
-    box-shadow: 0 4px 14px rgba(0,0,0,.12);
-    cursor:grab; user-select:none; background:transparent;
-  }
+  .item { position:absolute; touch-action:none; border:1px solid transparent; border-radius:10px; box-shadow: 0 4px 14px rgba(0,0,0,.12); cursor:grab; user-select:none; background:transparent; }
   .item.dragging { cursor:grabbing; }
   .item.selected { border-color: rgba(138,43,226,.6); }
   .item img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; border-radius:10px; }
-  .drag-remove {
-    position:absolute; top:-10px; right:-10px; background:#000; color:#fff; border:none; border-radius:999px;
-    width:22px; height:22px; font-size:14px; line-height:22px; text-align:center; cursor:pointer; opacity:.85;
-  }
-
-  .sidebar {
-    background:#fff; border:1px solid #eee; border-radius:12px; padding:10px; overflow:auto; max-height:74vh;
-  }
+  .drag-remove { position:absolute; top:-10px; right:-10px; background:#000; color:#fff; border:none; border-radius:999px; width:22px; height:22px; font-size:14px; line-height:22px; text-align:center; cursor:pointer; opacity:.85; }
+  .sidebar { background:#fff; border:1px solid #eee; border-radius:12px; padding:10px; overflow:auto; max-height:74vh; }
   .folder-block { margin-bottom:12px; }
   .folder-title { font-weight:700; color:var(--purple); margin:6px 0; }
   .thumbs { display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; }
@@ -76,6 +58,7 @@
         </div>
       </div>
     </nav>
+    <nav class="menu"><a class="menu-btn" href="/shop">Shop AI</a></nav>
   </div>
 
   <div class="layout">
@@ -86,33 +69,23 @@
       </div>
       <div class="canvas-wrap" id="canvas"></div>
     </section>
-
     <aside class="sidebar" id="sidebar"></aside>
   </div>
 
 <script>
-  // Dropdown
   const outfitsBtn = document.getElementById('outfitsBtn');
   const outfitsDrop = document.getElementById('outfitsDrop');
   function toggle(el, open){ el.classList.toggle('open', open!==undefined?open:!el.classList.contains('open')); }
   outfitsBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(outfitsDrop); });
   document.addEventListener('click', ()=>toggle(outfitsDrop,false));
 
-  // Persistence
   const LS_V3='threadedfits_state_v3', LS_V2='threadedfits_state_v2';
-  function loadState(){
-    try{ const r3=localStorage.getItem(LS_V3); if(r3){ const s=JSON.parse(r3); sanitize(s); return s; } }catch{}
-    try{ const r2=localStorage.getItem(LS_V2); if(r2){ const s2=JSON.parse(r2); const s3={folders:s2.folders||[], outfits:[]}; sanitize(s3); saveState(s3); return s3; } }catch{}
-    const empty={folders:[], outfits:[]}; saveState(empty); return empty;
-  }
-  function sanitize(s){ if(!Array.isArray(s.folders)) s.folders=[]; if(!Array.isArray(s.outfits)) s.outfits=[];
-    s.folders.forEach(f=>{ f.images=(f.images||[]).map(x=>typeof x==='string'?({src:x,ts:Date.now()}):x); });
-  }
+  function loadState(){ try{ const r3=localStorage.getItem(LS_V3); if(r3){ const s=JSON.parse(r3); sanitize(s); return s; } }catch{} try{ const r2=localStorage.getItem(LS_V2); if(r2){ const s2=JSON.parse(r2); const s3={folders:s2.folders||[], outfits:[]}; sanitize(s3); saveState(s3); return s3; } }catch{} const empty={folders:[], outfits:[]}; saveState(empty); return empty; }
+  function sanitize(s){ if(!Array.isArray(s.folders)) s.folders=[]; if(!Array.isArray(s.outfits)) s.outfits=[]; s.folders.forEach(f=>{ f.images=(f.images||[]).map(x=>typeof x==='string'?({src:x,ts:Date.now()}):x); }); }
   function saveState(s){ localStorage.setItem(LS_V3, JSON.stringify(s)); }
   function uid(){ return 'o_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
   let state = loadState();
 
-  // Sidebar
   const sidebar = document.getElementById('sidebar');
   function renderSidebar(){
     sidebar.innerHTML='';
@@ -130,12 +103,9 @@
     });
   }
 
-  // Canvas + interactions
   const canvas = document.getElementById('canvas');
   let zCounter = 10;
-
   function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-
   function setItemPos(el, x, y){
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     const w = el.offsetWidth, h = el.offsetHeight;
@@ -144,140 +114,51 @@
     el.style.left = nx + 'px'; el.style.top = ny + 'px';
     el.dataset.x = nx; el.dataset.y = ny;
   }
-
   function setItemSize(el, w, h, keepCenter=true){
-    const cw = canvas.clientWidth, ch = canvas.clientHeight;
     const prevW = el.offsetWidth, prevH = el.offsetHeight;
     let x = parseFloat(el.dataset.x||'0'), y = parseFloat(el.dataset.y||'0');
-    if(keepCenter){
-      const cx = x + prevW/2, cy = y + prevH/2;
-      el.style.width = w + 'px'; el.style.height = h + 'px';
-      setItemPos(el, cx - w/2, cy - h/2);
-    }else{
-      el.style.width = w + 'px'; el.style.height = h + 'px';
-      setItemPos(el, x, y);
-    }
+    if(keepCenter){ const cx=x+prevW/2, cy=y+prevH/2; el.style.width=w+'px'; el.style.height=h+'px'; setItemPos(el, cx-w/2, cy-h/2); }
+    else { el.style.width=w+'px'; el.style.height=h+'px'; setItemPos(el, x, y); }
   }
-
   function selectItem(el){
     document.querySelectorAll('#canvas .item').forEach(i=>i.classList.remove('selected'));
-    el.classList.add('selected');
-    el.style.zIndex = (++zCounter).toString();
+    el.classList.add('selected'); el.style.zIndex=(++zCounter).toString();
   }
-
   function enableDrag(el){
     let dragging=false, sx=0, sy=0, startX=0, startY=0;
-    el.addEventListener('pointerdown', (e)=>{
-      selectItem(el);
-      dragging=true; sx=e.clientX; sy=e.clientY;
-      startX=parseFloat(el.dataset.x||'0'); startY=parseFloat(el.dataset.y||'0');
-      el.classList.add('dragging');
-      el.setPointerCapture(e.pointerId);
-    });
-    el.addEventListener('pointermove', (e)=>{
-      if(!dragging) return;
-      const dx = e.clientX - sx, dy = e.clientY - sy;
-      setItemPos(el, startX + dx, startY + dy);
-    });
-    el.addEventListener('pointerup', (e)=>{
-      dragging=false; el.classList.remove('dragging'); el.releasePointerCapture(e.pointerId);
-    });
-    // Resize with Shift + wheel
-    el.addEventListener('wheel', (e)=>{
-      if(!e.shiftKey) return;
-      e.preventDefault();
-      const baseW = parseFloat(el.dataset.baseW), baseH=parseFloat(el.dataset.baseH);
-      let scale = parseFloat(el.dataset.scale||'1');
-      scale *= (e.deltaY < 0 ? 1.05 : 0.95);
-      scale = clamp(scale, 0.3, 3);
-      el.dataset.scale = scale;
-      setItemSize(el, baseW*scale, baseH*scale, true);
-    }, { passive:false });
+    el.addEventListener('pointerdown', (e)=>{ selectItem(el); dragging=true; sx=e.clientX; sy=e.clientY; startX=parseFloat(el.dataset.x||'0'); startY=parseFloat(el.dataset.y||'0'); el.classList.add('dragging'); el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointermove', (e)=>{ if(!dragging) return; const dx=e.clientX-sx, dy=e.clientY-sy; setItemPos(el, startX+dx, startY+dy); });
+    el.addEventListener('pointerup', (e)=>{ dragging=false; el.classList.remove('dragging'); el.releasePointerCapture(e.pointerId); });
+    el.addEventListener('wheel', (e)=>{ if(!e.shiftKey) return; e.preventDefault(); const baseW=parseFloat(el.dataset.baseW), baseH=parseFloat(el.dataset.baseH); let scale=parseFloat(el.dataset.scale||'1'); scale *= (e.deltaY<0?1.05:0.95); scale = clamp(scale, 0.3, 3); el.dataset.scale=scale; setItemSize(el, baseW*scale, baseH*scale, true); }, { passive:false });
   }
-
   function addItemToCanvas(src){
-    const wrap=document.createElement('div'); wrap.className='item';
-    wrap.dataset.scale='1';
+    const wrap=document.createElement('div'); wrap.className='item'; wrap.dataset.scale='1';
     const img=new Image(); img.draggable=false; img.src=src;
-    img.onload = ()=>{
-      const baseW = clamp(img.naturalWidth || 180, 120, 220);
-      const ratio = (img.naturalHeight || baseW) / (img.naturalWidth || baseW);
-      const baseH = Math.round(baseW * ratio);
-      wrap.dataset.baseW = baseW; wrap.dataset.baseH = baseH;
-
-      wrap.style.width = baseW + 'px';
-      wrap.style.height = baseH + 'px';
-
-      const x = (canvas.clientWidth - baseW)/2 + (Math.random()*40 - 20);
-      const y = (canvas.clientHeight - baseH)/2 + (Math.random()*40 - 20);
-      setItemPos(wrap, x, y);
-    };
-    const del=document.createElement('button'); del.className='drag-remove'; del.textContent='×';
-    del.addEventListener('click', (e)=>{ e.stopPropagation(); wrap.remove(); });
-
-    wrap.appendChild(img);
-    wrap.appendChild(del);
-    enableDrag(wrap);
-    canvas.appendChild(wrap);
+    img.onload = ()=>{ const baseW = clamp(img.naturalWidth || 180, 120, 220); const ratio=(img.naturalHeight||baseW)/(img.naturalWidth||baseW); const baseH=Math.round(baseW*ratio); wrap.dataset.baseW=baseW; wrap.dataset.baseH=baseH; wrap.style.width=baseW+'px'; wrap.style.height=baseH+'px'; const x=(canvas.clientWidth-baseW)/2+(Math.random()*40-20); const y=(canvas.clientHeight-baseH)/2+(Math.random()*40-20); setItemPos(wrap, x, y); };
+    const del=document.createElement('button'); del.className='drag-remove'; del.textContent='×'; del.addEventListener('click',(e)=>{ e.stopPropagation(); wrap.remove(); });
+    wrap.appendChild(img); wrap.appendChild(del); enableDrag(wrap); canvas.appendChild(wrap);
   }
 
-  // Save outfit with preview thumbnail
   async function makePreview(items){
-    const cw = canvas.clientWidth, ch = canvas.clientHeight;
-    const maxW = 480;
-    const scale = maxW / cw;
-    const tw = Math.round(maxW);
-    const th = Math.round(ch * scale);
-    const off = document.createElement('canvas');
-    off.width = tw; off.height = th;
-    const ctx = off.getContext('2d');
-
-    // background to match canvas
-    ctx.fillStyle = '#ededf3';
-    ctx.fillRect(0, 0, tw, th);
-
-    // load images then draw
-    const loads = items.map(it => new Promise((res)=>{
-      const im = new Image();
-      im.onload = ()=> res({ im, it });
-      im.src = it.src;
-    }));
-
+    const cw=canvas.clientWidth, ch=canvas.clientHeight, maxW=480, scale=maxW/cw, tw=Math.round(maxW), th=Math.round(ch*scale);
+    const off=document.createElement('canvas'); off.width=tw; off.height=th; const ctx=off.getContext('2d'); ctx.fillStyle='#ededf3'; ctx.fillRect(0,0,tw,th);
+    const loads = items.map(it=>new Promise(res=>{ const im=new Image(); im.onload=()=>res({im,it}); im.src=it.src; }));
     const all = await Promise.all(loads);
-    all.forEach(({im,it})=>{
-      ctx.drawImage(im, it.x*scale, it.y*scale, it.w*scale, it.h*scale);
-    });
-
-    // JPEG to keep storage small
+    all.forEach(({im,it})=>{ ctx.drawImage(im, it.x*scale, it.y*scale, it.w*scale, it.h*scale); });
     return off.toDataURL('image/jpeg', 0.85);
   }
 
   const saveBtn=document.getElementById('saveOutfitBtn');
   saveBtn.addEventListener('click', async ()=>{
-    const name=prompt('Name this outfit:','My Outfit');
-    if(!name) return;
-
-    const items=[...canvas.querySelectorAll('.item')].map(w=>{
-      const img=w.querySelector('img'); if(!img) return null;
-      const baseW=parseFloat(w.dataset.baseW), baseH=parseFloat(w.dataset.baseH), scale=parseFloat(w.dataset.scale||'1');
-      return {
-        src: img.src,
-        x: parseFloat(w.dataset.x||'0'),
-        y: parseFloat(w.dataset.y||'0'),
-        w: baseW * scale,
-        h: baseH * scale,
-        scale, baseW, baseH
-      };
-    }).filter(Boolean);
-
+    const name=prompt('Name this outfit:','My Outfit'); if(!name) return;
+    const items=[...canvas.querySelectorAll('.item')].map(w=>{ const img=w.querySelector('img'); if(!img) return null; const baseW=parseFloat(w.dataset.baseW), baseH=parseFloat(w.dataset.baseH), scale=parseFloat(w.dataset.scale||'1'); return { src:img.src, x:parseFloat(w.dataset.x||'0'), y:parseFloat(w.dataset.y||'0'), w:baseW*scale, h:baseH*scale, scale, baseW, baseH }; }).filter(Boolean);
     const preview = await makePreview(items);
-    const outfit={ id: uid(), name: name.trim(), items, preview, createdAt: Date.now() };
-    state.outfits = state.outfits || [];
-    state.outfits.unshift(outfit);
-    saveState(state);
+    const outfit={ id: uid(), name:name.trim(), items, preview, createdAt: Date.now() };
+    state.outfits = state.outfits || []; state.outfits.unshift(outfit); saveState(state);
     if(confirm('Saved! Go to Saved Outfits now?')) location.href='/outfits/saved';
   });
 
+  function renderSidebar(){ /* same as above */ }
   renderSidebar();
 </script>
 </body>
