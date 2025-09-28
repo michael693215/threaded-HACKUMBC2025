@@ -16,21 +16,25 @@
     }
     .brand { font-weight:700; color:var(--purple); font-size:22px; }
 
-    /* Wardrobe toolbar sits BELOW header, left-aligned */
+    /* Toolbar (below header) */
     .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
     .menu { position:relative; }
     .menu-btn {
-      display:flex; align-items:center; gap:8px; background: var(--purple-2); color:#fff;
+      display:inline-flex; align-items:center; gap:8px; background: var(--purple-2); color:#fff;
       border:none; border-radius:8px; padding:8px 12px; cursor:pointer; text-decoration:none;
     }
     .menu-btn:hover { filter: brightness(.95); }
     .dropdown {
       position:absolute; top: calc(100% + 6px); left: 0;
-      width: min(360px, calc(100vw - 32px)); max-height: 60vh; overflow: auto;
+      width: min(360px, calc(100vw - 32px)); max-height: 60vh; overflow:auto;
       background:#fff; border:1px solid #eee; border-radius:10px; box-shadow: 0 6px 24px rgba(0,0,0,.08);
       padding:12px; display:none; z-index:1000;
     }
     .dropdown.open { display:block; }
+    .menu-list a {
+      display:block; padding:8px 10px; border-radius:8px; text-decoration:none; color:#222;
+    }
+    .menu-list a:hover { background:#f2f2f7; }
 
     .row { display:flex; gap:8px; margin-bottom:10px; }
     .row input[type="text"] { flex:1; padding:8px; border:1px solid #ddd; border-radius:8px; }
@@ -64,12 +68,8 @@
   </style>
 </head>
 <body>
-  <!-- Brand-only header -->
-  <header class="nav">
-    <div class="brand">Threaded</div>
-  </header>
+  <header class="nav"><div class="brand">Threaded</div></header>
 
-  <!-- Wardrobe controls under the header, left-aligned -->
   <div class="toolbar">
     <nav class="menu">
       <button class="menu-btn" id="wardrobeBtn" aria-expanded="false" aria-controls="wardrobeDrop">Wardrobe ▼</button>
@@ -80,6 +80,16 @@
           <button class="btn primary" id="createFolderBtn">Create</button>
         </div>
         <div class="folders" id="folders"></div>
+      </div>
+    </nav>
+
+    <nav class="menu">
+      <button class="menu-btn" id="outfitsBtn" aria-expanded="false" aria-controls="outfitsDrop">Outfits ▼</button>
+      <div class="dropdown" id="outfitsDrop" role="menu" aria-labelledby="outfitsBtn">
+        <div class="menu-list">
+          <a href="/outfits/create">Create</a>
+          <a href="/outfits/saved">Saved Outfits</a>
+        </div>
       </div>
     </nav>
   </div>
@@ -93,7 +103,7 @@
         <input type="file" id="photoUpload" name="photo" accept="image/*" multiple />
         <label for="destFolder">Save to:</label>
         <select id="destFolder"></select>
-        <button type="submit">Add to Wardrobe</button>
+        <button type="submit">Add to wardrobe</button>
       </form>
       <p class="hint">Uploads are saved to the selected folder (stored locally in your browser).</p>
     </section>
@@ -109,112 +119,96 @@
   </main>
 
   <script>
-    // ---------- Persistence ----------
-    const LS_KEY = 'threadedfits_state_v2';
+    // ---------- Persistence (v3 with outfits) ----------
+    const LS_V3 = 'threadedfits_state_v3';
+    const LS_V2 = 'threadedfits_state_v2';
     function loadState() {
       try {
-        const raw = localStorage.getItem(LS_KEY);
-        const parsed = raw ? JSON.parse(raw) : { folders: [] };
-        if (!Array.isArray(parsed.folders)) parsed.folders = [];
-        parsed.folders.forEach(f => { f.images = (f.images || []).map(x => typeof x === 'string' ? ({ src:x, ts:Date.now() }) : x); });
-        return parsed;
-      } catch { return { folders: [] }; }
+        const raw3 = localStorage.getItem(LS_V3);
+        if (raw3) { const s=JSON.parse(raw3); sanitizeState(s); return s; }
+      } catch {}
+      try {
+        const raw2 = localStorage.getItem(LS_V2);
+        if (raw2) {
+          const s2 = JSON.parse(raw2);
+          const s3 = { folders: s2.folders || [], outfits: [] };
+          sanitizeState(s3); saveState(s3); return s3;
+        }
+      } catch {}
+      const empty = { folders: [], outfits: [] }; saveState(empty); return empty;
     }
-    function saveState() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-    function uid() { return 'f_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+    function sanitizeState(s) {
+      if (!Array.isArray(s.folders)) s.folders = [];
+      if (!Array.isArray(s.outfits)) s.outfits = [];
+      s.folders.forEach(f => { f.images = (f.images || []).map(x => typeof x === 'string' ? ({ src:x, ts:Date.now() }) : x); });
+    }
+    function saveState(s) { localStorage.setItem(LS_V3, JSON.stringify(s)); }
+    function uid() { return 'id_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
     let state = loadState();
 
-    // ---------- Wardrobe dropdown ----------
+    // ---------- Dropdowns ----------
     const wardrobeBtn = document.getElementById('wardrobeBtn');
     const wardrobeDrop = document.getElementById('wardrobeDrop');
+    const outfitsBtn  = document.getElementById('outfitsBtn');
+    const outfitsDrop = document.getElementById('outfitsDrop');
+    function toggle(el, open) { el.classList.toggle('open', open !== undefined ? open : !el.classList.contains('open')); }
+    wardrobeBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(wardrobeDrop); toggle(outfitsDrop,false); });
+    outfitsBtn.addEventListener('click',  (e)=>{ e.stopPropagation(); toggle(outfitsDrop);  toggle(wardrobeDrop,false); });
+    document.addEventListener('click', ()=>{ toggle(wardrobeDrop,false); toggle(outfitsDrop,false); });
+
+    // ---------- Wardrobe list & creation ----------
     const foldersEl = document.getElementById('folders');
     const newFolderNameEl = document.getElementById('newFolderName');
     const createFolderBtn = document.getElementById('createFolderBtn');
-
-    function toggleDropdown(force) {
-      const willOpen = force !== undefined ? force : !wardrobeDrop.classList.contains('open');
-      wardrobeDrop.classList.toggle('open', willOpen);
-      wardrobeBtn.setAttribute('aria-expanded', String(willOpen));
-    }
-    wardrobeBtn.addEventListener('click', () => toggleDropdown());
-    document.addEventListener('click', (e) => {
-      if (!wardrobeDrop.contains(e.target) && !wardrobeBtn.contains(e.target)) toggleDropdown(false);
-    });
-
     function renderFoldersList() {
       foldersEl.innerHTML = '';
-      if (!state.folders.length) {
-        const empty = document.createElement('div'); empty.className = 'hint'; empty.textContent = 'No folders yet.';
-        foldersEl.appendChild(empty); return;
-      }
+      if (!state.folders.length) { const empty = document.createElement('div'); empty.className='hint'; empty.textContent='No folders yet.'; foldersEl.appendChild(empty); return; }
       state.folders.forEach(f => {
-        const row = document.createElement('div'); row.className = 'folder-item';
-        const left = document.createElement('div'); left.className = 'folder-name';
-
-        const link = document.createElement('a');
-        link.href = '/folder?id=' + encodeURIComponent(f.id);
-        link.textContent = f.name;
-
-        const count = document.createElement('span'); count.className = 'folder-count';
-        count.textContent = (f.images ? f.images.length : 0) + ' items';
-
+        const row = document.createElement('div'); row.className='folder-item';
+        const left = document.createElement('div'); left.className='folder-name';
+        const link = document.createElement('a'); link.href='/folder?id='+encodeURIComponent(f.id); link.textContent=f.name;
+        const count = document.createElement('span'); count.className='folder-count'; count.textContent=(f.images?.length||0)+' items';
         left.appendChild(link); left.appendChild(count);
-
-        const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = 'Delete';
-        del.addEventListener('click', (e) => {
-          e.preventDefault(); e.stopPropagation();
-          if (confirm('Delete folder "' + f.name + '" and all its items (local only)?')) {
-            const idx = state.folders.findIndex(x => x.id === f.id);
-            if (idx !== -1) { state.folders.splice(idx, 1); saveState(); renderFoldersList(); renderFolderSelect(); rebuildRecent(); }
+        const del = document.createElement('button'); del.className='btn danger'; del.textContent='Delete';
+        del.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation();
+          if (confirm('Delete folder "'+f.name+'"?')) {
+            const i=state.folders.findIndex(x=>x.id===f.id);
+            if(i>-1){ state.folders.splice(i,1); saveState(state); renderFoldersList(); renderFolderSelect(); rebuildRecent(); }
           }
         });
-
         row.appendChild(left); row.appendChild(del); foldersEl.appendChild(row);
       });
     }
-
     function createFolder(name) {
-      const trimmed = (name || '').trim(); if (!trimmed) return;
-      state.folders.unshift({ id: uid(), name: trimmed, images: [] });
-      saveState(); renderFoldersList(); renderFolderSelect(); newFolderNameEl.value = '';
+      const n=(name||'').trim(); if(!n) return;
+      state.folders.unshift({ id: uid(), name:n, images:[] });
+      saveState(state); renderFoldersList(); renderFolderSelect(); newFolderNameEl.value='';
     }
-    createFolderBtn.addEventListener('click', () => createFolder(newFolderNameEl.value));
-    newFolderNameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') createFolder(newFolderNameEl.value); });
+    createFolderBtn.addEventListener('click', ()=>createFolder(newFolderNameEl.value));
+    newFolderNameEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter') createFolder(newFolderNameEl.value); });
 
-    // ---------- Upload to selected folder ----------
+    // ---------- Upload -> selected folder ----------
     const uploadForm = document.getElementById('uploadForm');
     const fileInput  = document.getElementById('photoUpload');
     const destFolder = document.getElementById('destFolder');
-
     function renderFolderSelect() {
       destFolder.innerHTML = '';
-      if (!state.folders.length) {
-        const opt = document.createElement('option'); opt.value = ''; opt.textContent = '— create a folder in Wardrobe —';
-        destFolder.appendChild(opt); return;
-      }
-      state.folders.forEach(f => {
-        const opt = document.createElement('option'); opt.value = f.id; opt.textContent = f.name; destFolder.appendChild(opt);
-      });
+      if (!state.folders.length) { const opt=document.createElement('option'); opt.value=''; opt.textContent='— create a folder in Wardrobe —'; destFolder.appendChild(opt); return; }
+      state.folders.forEach(f => { const opt=document.createElement('option'); opt.value=f.id; opt.textContent=f.name; destFolder.appendChild(opt); });
     }
-
-    uploadForm.addEventListener('submit', (e) => {
+    uploadForm.addEventListener('submit', (e)=>{
       e.preventDefault();
-      const files = Array.from(fileInput.files);
-      if (!files.length) { alert('Select image(s) to upload.'); return; }
-      const folderId = destFolder.value;
-      if (!folderId) { alert('Create/select a folder from Wardrobe first.'); return; }
-      const folder = state.folders.find(f => f.id === folderId);
-      if (!folder) { alert('Selected folder not found.'); return; }
-
-      let remain = files.length;
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
+      const files=[...fileInput.files]; if(!files.length){ alert('Select image(s).'); return; }
+      const fid=destFolder.value; if(!fid){ alert('Create/select a folder first.'); return; }
+      const folder=state.folders.find(f=>f.id===fid); if(!folder){ alert('Folder not found.'); return; }
+      let remain=files.length;
+      files.forEach(file=>{
+        const r=new FileReader();
+        r.onload = ev => {
           folder.images.push({ src: ev.target.result, ts: Date.now() });
-          remain--;
-          if (remain === 0) { saveState(); fileInput.value=''; rebuildRecent(); renderFoldersList(); }
+          if(--remain===0){ saveState(state); fileInput.value=''; renderFoldersList(); rebuildRecent(); }
         };
-        reader.readAsDataURL(file);
+        r.readAsDataURL(file);
       });
     });
 
@@ -223,31 +217,27 @@
     const prevBtn  = document.getElementById('prevBtn');
     const nextBtn  = document.getElementById('nextBtn');
     const counter  = document.getElementById('counter');
-
-    let recent = []; let currentIndex = 0;
-
+    let recent=[]; let currentIndex=0;
     function rebuildRecent() {
-      recent = [];
-      state.folders.forEach(f => (f.images || []).forEach(img => recent.push({ src: (img.src || img), ts: img.ts || Date.now() })));
-      recent.sort((a,b) => b.ts - a.ts);
-      currentIndex = Math.max(0, Math.min(currentIndex, Math.max(0, recent.length - 1)));
+      recent = state.folders.flatMap(f => (f.images||[]).map(img => ({ src: img.src || img, ts: img.ts || Date.now() })));
+      recent.sort((a,b)=>b.ts-a.ts);
+      currentIndex = Math.max(0, Math.min(currentIndex, Math.max(0, recent.length-1)));
       renderCarousel();
     }
-
     function renderCarousel() {
-      Array.from(carousel.querySelectorAll('img')).forEach(n => n.remove());
-      if (!recent.length) { counter.textContent = '0 / 0'; prevBtn.disabled = true; nextBtn.disabled = true; return; }
-      const img = document.createElement('img'); img.src = recent[currentIndex].src; img.alt = 'Recent ' + (currentIndex + 1); img.classList.add('active');
+      [...carousel.querySelectorAll('img')].forEach(n=>n.remove());
+      if(!recent.length){ counter.textContent='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; return; }
+      const img=document.createElement('img'); img.src=recent[currentIndex].src; img.alt='Recent '+(currentIndex+1); img.classList.add('active');
       carousel.insertBefore(img, prevBtn);
-      counter.textContent = (currentIndex + 1) + ' / ' + recent.length;
-      const multi = recent.length > 1; prevBtn.disabled = !multi; nextBtn.disabled = !multi;
+      counter.textContent=(currentIndex+1)+' / '+recent.length;
+      const multi=recent.length>1; prevBtn.disabled=!multi; nextBtn.disabled=!multi;
     }
-    function showPrev(){ if (recent.length < 2) return; currentIndex = (currentIndex - 1 + recent.length) % recent.length; renderCarousel(); }
-    function showNext(){ if (recent.length < 2) return; currentIndex = (currentIndex + 1) % recent.length; renderCarousel(); }
+    function showPrev(){ if(recent.length<2) return; currentIndex=(currentIndex-1+recent.length)%recent.length; renderCarousel(); }
+    function showNext(){ if(recent.length<2) return; currentIndex=(currentIndex+1)%recent.length; renderCarousel(); }
     prevBtn.addEventListener('click', showPrev); nextBtn.addEventListener('click', showNext);
-    window.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') showPrev(); if (e.key === 'ArrowRight') showNext(); });
+    window.addEventListener('keydown', e=>{ if(e.key==='ArrowLeft') showPrev(); if(e.key==='ArrowRight') showNext(); });
 
-    // ---------- Init ----------
+    // Init
     renderFoldersList();
     renderFolderSelect();
     rebuildRecent();

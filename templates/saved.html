@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>threadedfits — Saved Outfits</title>
+<style>
+  :root { --purple:#5a2d82; --purple-2:#8a2be2; --bg:#f7f7fb; --card:#fff; --muted:#777; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:#222; }
+
+  .nav { background:#fff; border-bottom:1px solid #eee; padding:18px 16px; }
+  .brand { font-weight:700; color:var(--purple); font-size:22px; }
+
+  .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
+  .menu { position:relative; }
+  .menu-btn {
+    display:inline-flex; align-items:center; gap:8px; background: var(--purple-2); color:#fff;
+    border:none; border-radius:8px; padding:8px 12px; cursor:pointer; text-decoration:none;
+  }
+  .menu-btn:hover { filter: brightness(.95); }
+  .dropdown {
+    position:absolute; top: calc(100% + 6px); left: 0;
+    width: min(260px, calc(100vw - 32px)); max-height: 60vh; overflow:auto;
+    background:#fff; border:1px solid #eee; border-radius:10px; box-shadow: 0 6px 24px rgba(0,0,0,.08);
+    padding:12px; display:none; z-index:1000;
+  }
+  .dropdown.open { display:block; }
+  .menu-list a { display:block; padding:8px 10px; border-radius:8px; text-decoration:none; color:#222; }
+  .menu-list a:hover { background:#f2f2f7; }
+
+  main { max-width:1100px; margin:16px auto; padding:0 16px; }
+  h2 { color:var(--purple); }
+
+  .outfits { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:14px; }
+  .card {
+    background:#fff; border:2px solid transparent; border-radius:12px; padding:12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06); cursor:pointer; display:flex; flex-direction:column; gap:8px;
+  }
+  .card.selected { border-color: var(--purple-2); box-shadow: 0 0 0 2px rgba(138,43,226,.15); }
+  .preview {
+    width:100%; aspect-ratio: 4/3; object-fit:cover; border-radius:8px; background:#eee;
+  }
+  .name { font-weight:700; }
+  .meta { color:var(--muted); font-size:12px; }
+  .empty { color:var(--muted); }
+</style>
+</head>
+<body>
+  <header class="nav"><div class="brand">Threaded</div></header>
+
+  <div class="toolbar">
+    <nav class="menu"><a class="menu-btn" href="/">Wardrobe</a></nav>
+    <nav class="menu">
+      <button class="menu-btn" id="outfitsBtn" aria-expanded="false" aria-controls="outfitsDrop">Outfits ▼</button>
+      <div class="dropdown" id="outfitsDrop">
+        <div class="menu-list">
+          <a href="/outfits/create">Create</a>
+          <a href="/outfits/saved">Saved Outfits</a>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <main>
+    <h2>Saved Outfits</h2>
+    <section class="outfits" id="list"></section>
+    <p class="empty" id="emptyMsg" style="display:none;">No outfits yet. Create one from the Outfits menu.</p>
+  </main>
+
+<script>
+  // Dropdown
+  const outfitsBtn=document.getElementById('outfitsBtn');
+  const outfitsDrop=document.getElementById('outfitsDrop');
+  function toggle(el, open){ el.classList.toggle('open', open!==undefined?open:!el.classList.contains('open')); }
+  outfitsBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(outfitsDrop); });
+  document.addEventListener('click', ()=>toggle(outfitsDrop,false));
+
+  // Persistence
+  const LS_V3='threadedfits_state_v3', LS_V2='threadedfits_state_v2';
+  function loadState(){
+    try{ const r3=localStorage.getItem(LS_V3); if(r3){ return JSON.parse(r3); } }catch{}
+    try{ const r2=localStorage.getItem(LS_V2); if(r2){ const s2=JSON.parse(r2); const s3={folders:s2.folders||[], outfits:[]}; localStorage.setItem(LS_V3, JSON.stringify(s3)); return s3; } }catch{}
+    const empty={folders:[], outfits:[]}; localStorage.setItem(LS_V3, JSON.stringify(empty)); return empty;
+  }
+  function saveState(s){ localStorage.setItem(LS_V3, JSON.stringify(s)); }
+
+  let state = loadState();
+
+  const list = document.getElementById('list');
+  const emptyMsg = document.getElementById('emptyMsg');
+
+  function fmtTime(ts){ const d=new Date(ts); return d.toLocaleString(); }
+
+  function render(){
+    list.innerHTML='';
+    const outfits = state.outfits || [];
+    emptyMsg.style.display = outfits.length ? 'none' : 'block';
+    outfits.forEach(o=>{
+      const card=document.createElement('div'); card.className='card'; card.tabIndex=0;
+
+      const img=document.createElement('img'); img.className='preview';
+      img.src = o.preview || '';
+      if (!o.preview) img.alt='No preview available';
+
+      const name=document.createElement('div'); name.className='name'; name.textContent=o.name||'Untitled';
+      const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${o.items?.length||0} items • ${fmtTime(o.createdAt||Date.now())}`;
+
+      card.appendChild(img); card.appendChild(name); card.appendChild(meta);
+
+      card.addEventListener('click', ()=>{
+        document.querySelectorAll('.card').forEach(c=>c.classList.remove('selected'));
+        card.classList.add('selected');
+        if (confirm(`Delete outfit "${o.name}"?`)) {
+          const i=(state.outfits||[]).findIndex(x=>x.id===o.id);
+          if(i>-1){ state.outfits.splice(i,1); saveState(state); render(); }
+        }
+      });
+      list.appendChild(card);
+    });
+  }
+
+  render();
+</script>
+</body>
+</html>

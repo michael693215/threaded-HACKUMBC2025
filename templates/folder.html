@@ -10,24 +10,30 @@
   body { margin:0; font-family: system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:#222; }
 
   /* Header: brand left, Back button right */
-  .nav {
-    background:#fff; border-bottom:1px solid #eee; padding:18px 16px;
-    display:flex; align-items:center; justify-content:space-between;
-  }
+  .nav { background:#fff; border-bottom:1px solid #eee; padding:18px 16px;
+         display:flex; align-items:center; justify-content:space-between; }
   .brand { font-weight:700; color:var(--purple); font-size:22px; }
   .btn { background:#eee; border:none; border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; color:#222; }
   .btn.primary { background: var(--purple-2); color:#fff; }
   .btn.danger { background:#e35c5c; color:#fff; }
 
-  /* Wardrobe toolbar BELOW header, left-aligned (like main page) */
+  /* Toolbar (below header) same as Home; Wardrobe links home */
   .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
   .menu { position:relative; }
-  /* On folder page, Wardrobe is a link back to home (no dropdown) */
   .menu-btn {
     display:inline-flex; align-items:center; gap:8px; background: var(--purple-2); color:#fff;
     border:none; border-radius:8px; padding:8px 12px; cursor:pointer; text-decoration:none;
   }
   .menu-btn:hover { filter: brightness(.95); }
+  .dropdown {
+    position:absolute; top: calc(100% + 6px); left: 0;
+    width: min(260px, calc(100vw - 32px)); max-height: 60vh; overflow:auto;
+    background:#fff; border:1px solid #eee; border-radius:10px; box-shadow: 0 6px 24px rgba(0,0,0,.08);
+    padding:12px; display:none; z-index:1000;
+  }
+  .dropdown.open { display:block; }
+  .menu-list a { display:block; padding:8px 10px; border-radius:8px; text-decoration:none; color:#222; }
+  .menu-list a:hover { background:#f2f2f7; }
 
   main { max-width:1000px; margin:20px auto; padding:0 16px; }
   .header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
@@ -43,16 +49,21 @@
 </style>
 </head>
 <body>
-  <!-- Brand left, Back button right -->
   <header class="nav">
     <div class="brand">Threaded</div>
     <a class="btn" href="/">← Back</a>
   </header>
 
-  <!-- Left-hand Wardrobe button in same spot as main page; goes to home -->
   <div class="toolbar">
+    <nav class="menu"><a class="menu-btn" href="/">Wardrobe</a></nav>
     <nav class="menu">
-      <a class="menu-btn" href="/">Wardrobe</a>
+      <button class="menu-btn" id="outfitsBtn" aria-expanded="false" aria-controls="outfitsDrop">Outfits ▼</button>
+      <div class="dropdown" id="outfitsDrop" role="menu" aria-labelledby="outfitsBtn">
+        <div class="menu-list">
+          <a href="/outfits/create">Create</a>
+          <a href="/outfits/saved">Saved Outfits</a>
+        </div>
+      </div>
     </nav>
   </div>
 
@@ -69,11 +80,26 @@
   </main>
 
 <script>
-  const LS_KEY = 'threadedfits_state_v2';
-  function loadState(){ try{ const raw=localStorage.getItem(LS_KEY); const s=raw?JSON.parse(raw):{folders:[]}; if(!Array.isArray(s.folders)) s.folders=[]; s.folders.forEach(f=>{ f.images=(f.images||[]).map(x=>typeof x==='string'?({src:x,ts:Date.now()}):x); }); return s; }catch{ return {folders:[]}; } }
-  function saveState(s){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
-  function getParam(n){ return new URL(location.href).searchParams.get(n); }
+  // Outfits dropdown
+  const outfitsBtn = document.getElementById('outfitsBtn');
+  const outfitsDrop = document.getElementById('outfitsDrop');
+  function toggle(el, open){ el.classList.toggle('open', open!==undefined?open:!el.classList.contains('open')); }
+  outfitsBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(outfitsDrop); });
+  document.addEventListener('click', ()=>toggle(outfitsDrop,false));
 
+  // Persistence (v3)
+  const LS_V3 = 'threadedfits_state_v3', LS_V2='threadedfits_state_v2';
+  function loadState(){
+    try{ const r3=localStorage.getItem(LS_V3); if(r3){ const s=JSON.parse(r3); sanitize(s); return s; } }catch{}
+    try{ const r2=localStorage.getItem(LS_V2); if(r2){ const s2=JSON.parse(r2); const s3={folders:s2.folders||[], outfits:[]}; sanitize(s3); saveState(s3); return s3; } }catch{}
+    const empty={folders:[], outfits:[]}; saveState(empty); return empty;
+  }
+  function sanitize(s){ if(!Array.isArray(s.folders)) s.folders=[]; if(!Array.isArray(s.outfits)) s.outfits=[];
+    s.folders.forEach(f=>{ f.images=(f.images||[]).map(x=>typeof x==='string'?({src:x, ts:Date.now()}):x); });
+  }
+  function saveState(s){ localStorage.setItem(LS_V3, JSON.stringify(s)); }
+
+  function getParam(name){ return new URL(location.href).searchParams.get(name); }
   let state = loadState();
   const folderId = getParam('id');
   function getFolder(){ return state.folders.find(f => f.id === folderId) || null; }
