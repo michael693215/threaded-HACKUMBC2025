@@ -3,203 +3,254 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>threadedfits</title>
+  <title>threadedfits — Home</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      color: #333;
-      margin: 0;
-      padding: 20px;
-      text-align: center;
+    :root { --purple:#5a2d82; --purple-2:#8a2be2; --bg:#f7f7fb; --card:#fff; --muted:#777; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:#222; }
+
+    /* Header: brand only */
+    .nav {
+      background:#fff; border-bottom:1px solid #eee; padding:18px 16px;
+      display:flex; align-items:center; justify-content:flex-start;
     }
-    h1, h2 { color: #5a2d82; }
-    .upload-section, .posts-section {
-      background-color: #fff;
-      margin: 20px auto;
-      padding: 25px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,.1);
-      max-width: 700px;
+    .brand { font-weight:700; color:var(--purple); font-size:22px; }
+
+    /* Wardrobe toolbar sits BELOW header, left-aligned */
+    .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
+    .menu { position:relative; }
+    .menu-btn {
+      display:flex; align-items:center; gap:8px; background: var(--purple-2); color:#fff;
+      border:none; border-radius:8px; padding:8px 12px; cursor:pointer; text-decoration:none;
     }
-    .upload-section form {
-      display: flex; flex-direction: column; align-items: center; gap: 15px;
+    .menu-btn:hover { filter: brightness(.95); }
+    .dropdown {
+      position:absolute; top: calc(100% + 6px); left: 0;
+      width: min(360px, calc(100vw - 32px)); max-height: 60vh; overflow: auto;
+      background:#fff; border:1px solid #eee; border-radius:10px; box-shadow: 0 6px 24px rgba(0,0,0,.08);
+      padding:12px; display:none; z-index:1000;
     }
-    input[type="file"] {
-      border: 1px solid #ddd; padding: 10px; border-radius: 5px;
-      width: 100%; max-width: 300px; background-color: #f9f9f9;
-    }
-    button[type="submit"] {
-      background-color: #8a2be2; color: #fff; padding: 10px 20px;
-      border: none; border-radius: 5px; cursor: pointer; font-size: 16px;
-      transition: background-color .3s ease;
-    }
-    button[type="submit"]:hover { background-color: #6a1aae; }
+    .dropdown.open { display:block; }
+
+    .row { display:flex; gap:8px; margin-bottom:10px; }
+    .row input[type="text"] { flex:1; padding:8px; border:1px solid #ddd; border-radius:8px; }
+    .btn { background:#eee; border:none; border-radius:8px; padding:8px 10px; cursor:pointer; }
+    .btn.primary { background: var(--purple-2); color:#fff; }
+    .btn.danger { background:#e35c5c; color:#fff; }
+    .hint { font-size:12px; color: var(--muted); margin-bottom:6px; }
+    .folders { max-height:240px; overflow:auto; border-top:1px dashed #eee; padding-top:8px; }
+    .folder-item { display:flex; align-items:center; justify-content:space-between; padding:8px; border:1px solid #eee; border-radius:8px; margin-bottom:6px; background:#fafafa; }
+    .folder-name { display:flex; align-items:center; gap:6px; overflow:hidden; }
+    .folder-name a { color:#222; text-decoration:none; font-weight:600; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:180px; }
+    .folder-count { color: var(--muted); font-size:12px; }
+
+    /* Page content */
+    main { max-width:900px; margin: 8px auto 24px; padding: 0 16px; text-align:center; }
+    h1, h2 { color: var(--purple); margin: 12px 0; }
+    .upload-section, .posts-section { background:#fff; margin:20px auto; padding:25px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.1); max-width:700px; }
+    .upload-form { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:center; }
+    input[type="file"] { border:1px solid #ddd; padding:10px; border-radius:5px; background:#f9f9f9; }
+    select { padding:10px; border:1px solid #ddd; border-radius:6px; }
 
     /* Carousel */
-    .carousel {
-      position: relative;
-      width: 100%;
-      max-width: 640px;
-      height: 420px;
-      margin: 0 auto;
-      background: #fafafa;
-      border: 1px solid #eee;
-      border-radius: 10px;
-      overflow: hidden;
-      display: grid;
-      place-items: center;
-    }
-    .carousel img {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      display: none; /* hidden until rendered */
-    }
-    .carousel img.active {
-      display: block;
-    }
-    .nav-btn {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(0,0,0,0.5);
-      color: #fff;
-      border: none;
-      width: 44px;
-      height: 44px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 22px;
-      line-height: 44px;
-      display: grid;
-      place-items: center;
-      user-select: none;
-    }
-    .nav-btn:hover { background: rgba(0,0,0,0.7); }
-    .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    #prevBtn { left: 10px; }
-    #nextBtn { right: 10px; }
-
-    .counter {
-      position: absolute;
-      bottom: 8px;
-      right: 12px;
-      background: rgba(0,0,0,0.5);
-      color: #fff;
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
+    .carousel { position:relative; width:100%; max-width:640px; height:420px; margin:0 auto; background:#fafafa; border:1px solid #eee; border-radius:10px; overflow:hidden; display:grid; place-items:center; }
+    .carousel img { max-width:100%; max-height:100%; object-fit:contain; display:none; }
+    .carousel img.active { display:block; }
+    .nav-btn { position:absolute; top:50%; transform:translateY(-50%); background:rgba(0,0,0,0.5); color:#fff; border:none; width:44px; height:44px; border-radius:8px; cursor:pointer; font-size:22px; line-height:44px; display:grid; place-items:center; user-select:none; }
+    .nav-btn:hover { background:rgba(0,0,0,0.7); }
+    .nav-btn:disabled { opacity:.3; cursor:not-allowed; }
+    #prevBtn { left:10px; } #nextBtn { right:10px; }
+    .counter { position:absolute; bottom:8px; right:12px; background:rgba(0,0,0,0.5); color:#fff; padding:4px 8px; border-radius:6px; font-size:12px; }
   </style>
 </head>
 <body>
-  <h1>Welcome to Threaded!</h1>
+  <!-- Brand-only header -->
+  <header class="nav">
+    <div class="brand">Threaded</div>
+  </header>
 
-  <div class="upload-section">
-    <h2>Upload a piece of clothing!</h2>
-    <form id="uploadForm" enctype="multipart/form-data">
-      <input type="file" id="photoUpload" name="photo" accept="image/*" />
-      <button type="submit">Add to wardrobe</button>
-    </form>
+  <!-- Wardrobe controls under the header, left-aligned -->
+  <div class="toolbar">
+    <nav class="menu">
+      <button class="menu-btn" id="wardrobeBtn" aria-expanded="false" aria-controls="wardrobeDrop">Wardrobe ▼</button>
+      <div class="dropdown" id="wardrobeDrop" role="menu" aria-labelledby="wardrobeBtn">
+        <div class="hint">Create a folder, then click it to view its items.</div>
+        <div class="row">
+          <input id="newFolderName" type="text" placeholder="New folder name" />
+          <button class="btn primary" id="createFolderBtn">Create</button>
+        </div>
+        <div class="folders" id="folders"></div>
+      </div>
+    </nav>
   </div>
 
-  <div class="posts-section">
-    <h2>Recently Added</h2>
+  <main>
+    <h1>Welcome to Threaded!</h1>
 
-    <!-- Carousel -->
-    <div class="carousel" id="carousel">
-      <!-- Images inserted dynamically -->
-      <button class="nav-btn" id="prevBtn" aria-label="Previous image">◀</button>
-      <button class="nav-btn" id="nextBtn" aria-label="Next image">▶</button>
-      <div class="counter" id="counter">0 / 0</div>
-    </div>
-  </div>
+    <section class="upload-section">
+      <h2>Upload a piece of clothing!</h2>
+      <form id="uploadForm" class="upload-form" enctype="multipart/form-data">
+        <input type="file" id="photoUpload" name="photo" accept="image/*" multiple />
+        <label for="destFolder">Save to:</label>
+        <select id="destFolder"></select>
+        <button type="submit">Add to Wardrobe</button>
+      </form>
+      <p class="hint">Uploads are saved to the selected folder (stored locally in your browser).</p>
+    </section>
+
+    <section class="posts-section">
+      <h2>Recently Added</h2>
+      <div class="carousel" id="carousel">
+        <button class="nav-btn" id="prevBtn" aria-label="Previous image">◀</button>
+        <button class="nav-btn" id="nextBtn" aria-label="Next image">▶</button>
+        <div class="counter" id="counter">0 / 0</div>
+      </div>
+    </section>
+  </main>
 
   <script>
+    // ---------- Persistence ----------
+    const LS_KEY = 'threadedfits_state_v2';
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        const parsed = raw ? JSON.parse(raw) : { folders: [] };
+        if (!Array.isArray(parsed.folders)) parsed.folders = [];
+        parsed.folders.forEach(f => { f.images = (f.images || []).map(x => typeof x === 'string' ? ({ src:x, ts:Date.now() }) : x); });
+        return parsed;
+      } catch { return { folders: [] }; }
+    }
+    function saveState() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+    function uid() { return 'f_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+    let state = loadState();
+
+    // ---------- Wardrobe dropdown ----------
+    const wardrobeBtn = document.getElementById('wardrobeBtn');
+    const wardrobeDrop = document.getElementById('wardrobeDrop');
+    const foldersEl = document.getElementById('folders');
+    const newFolderNameEl = document.getElementById('newFolderName');
+    const createFolderBtn = document.getElementById('createFolderBtn');
+
+    function toggleDropdown(force) {
+      const willOpen = force !== undefined ? force : !wardrobeDrop.classList.contains('open');
+      wardrobeDrop.classList.toggle('open', willOpen);
+      wardrobeBtn.setAttribute('aria-expanded', String(willOpen));
+    }
+    wardrobeBtn.addEventListener('click', () => toggleDropdown());
+    document.addEventListener('click', (e) => {
+      if (!wardrobeDrop.contains(e.target) && !wardrobeBtn.contains(e.target)) toggleDropdown(false);
+    });
+
+    function renderFoldersList() {
+      foldersEl.innerHTML = '';
+      if (!state.folders.length) {
+        const empty = document.createElement('div'); empty.className = 'hint'; empty.textContent = 'No folders yet.';
+        foldersEl.appendChild(empty); return;
+      }
+      state.folders.forEach(f => {
+        const row = document.createElement('div'); row.className = 'folder-item';
+        const left = document.createElement('div'); left.className = 'folder-name';
+
+        const link = document.createElement('a');
+        link.href = '/folder?id=' + encodeURIComponent(f.id);
+        link.textContent = f.name;
+
+        const count = document.createElement('span'); count.className = 'folder-count';
+        count.textContent = (f.images ? f.images.length : 0) + ' items';
+
+        left.appendChild(link); left.appendChild(count);
+
+        const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = 'Delete';
+        del.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (confirm('Delete folder "' + f.name + '" and all its items (local only)?')) {
+            const idx = state.folders.findIndex(x => x.id === f.id);
+            if (idx !== -1) { state.folders.splice(idx, 1); saveState(); renderFoldersList(); renderFolderSelect(); rebuildRecent(); }
+          }
+        });
+
+        row.appendChild(left); row.appendChild(del); foldersEl.appendChild(row);
+      });
+    }
+
+    function createFolder(name) {
+      const trimmed = (name || '').trim(); if (!trimmed) return;
+      state.folders.unshift({ id: uid(), name: trimmed, images: [] });
+      saveState(); renderFoldersList(); renderFolderSelect(); newFolderNameEl.value = '';
+    }
+    createFolderBtn.addEventListener('click', () => createFolder(newFolderNameEl.value));
+    newFolderNameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') createFolder(newFolderNameEl.value); });
+
+    // ---------- Upload to selected folder ----------
     const uploadForm = document.getElementById('uploadForm');
-    const fileInput = document.getElementById('photoUpload');
+    const fileInput  = document.getElementById('photoUpload');
+    const destFolder = document.getElementById('destFolder');
 
+    function renderFolderSelect() {
+      destFolder.innerHTML = '';
+      if (!state.folders.length) {
+        const opt = document.createElement('option'); opt.value = ''; opt.textContent = '— create a folder in Wardrobe —';
+        destFolder.appendChild(opt); return;
+      }
+      state.folders.forEach(f => {
+        const opt = document.createElement('option'); opt.value = f.id; opt.textContent = f.name; destFolder.appendChild(opt);
+      });
+    }
+
+    uploadForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const files = Array.from(fileInput.files);
+      if (!files.length) { alert('Select image(s) to upload.'); return; }
+      const folderId = destFolder.value;
+      if (!folderId) { alert('Create/select a folder from Wardrobe first.'); return; }
+      const folder = state.folders.find(f => f.id === folderId);
+      if (!folder) { alert('Selected folder not found.'); return; }
+
+      let remain = files.length;
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          folder.images.push({ src: ev.target.result, ts: Date.now() });
+          remain--;
+          if (remain === 0) { saveState(); fileInput.value=''; rebuildRecent(); renderFoldersList(); }
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    // ---------- Recently Added carousel ----------
     const carousel = document.getElementById('carousel');
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const counter = document.getElementById('counter');
+    const prevBtn  = document.getElementById('prevBtn');
+    const nextBtn  = document.getElementById('nextBtn');
+    const counter  = document.getElementById('counter');
 
-    let photos = [];       // array of data URLs
-    let currentIndex = 0;  // index into photos
+    let recent = []; let currentIndex = 0;
+
+    function rebuildRecent() {
+      recent = [];
+      state.folders.forEach(f => (f.images || []).forEach(img => recent.push({ src: (img.src || img), ts: img.ts || Date.now() })));
+      recent.sort((a,b) => b.ts - a.ts);
+      currentIndex = Math.max(0, Math.min(currentIndex, Math.max(0, recent.length - 1)));
+      renderCarousel();
+    }
 
     function renderCarousel() {
-      // Remove existing images
-      [...carousel.querySelectorAll('img')].forEach(img => img.remove());
-
-      if (photos.length === 0) {
-        counter.textContent = '0 / 0';
-        prevBtn.disabled = true;
-        nextBtn.disabled = true;
-        return;
-      }
-
-      // Clamp index
-      currentIndex = Math.max(0, Math.min(currentIndex, photos.length - 1));
-
-      // Create the active image
-      const img = document.createElement('img');
-      img.src = photos[currentIndex];
-      img.alt = `Fit ${currentIndex + 1}`;
-      img.classList.add('active');
-      // Insert behind buttons/counter so they stay on top
+      Array.from(carousel.querySelectorAll('img')).forEach(n => n.remove());
+      if (!recent.length) { counter.textContent = '0 / 0'; prevBtn.disabled = true; nextBtn.disabled = true; return; }
+      const img = document.createElement('img'); img.src = recent[currentIndex].src; img.alt = 'Recent ' + (currentIndex + 1); img.classList.add('active');
       carousel.insertBefore(img, prevBtn);
-
-      // Update controls
-      counter.textContent = `${currentIndex + 1} / ${photos.length}`;
-      const multi = photos.length > 1;
-      prevBtn.disabled = !multi;
-      nextBtn.disabled = !multi;
+      counter.textContent = (currentIndex + 1) + ' / ' + recent.length;
+      const multi = recent.length > 1; prevBtn.disabled = !multi; nextBtn.disabled = !multi;
     }
+    function showPrev(){ if (recent.length < 2) return; currentIndex = (currentIndex - 1 + recent.length) % recent.length; renderCarousel(); }
+    function showNext(){ if (recent.length < 2) return; currentIndex = (currentIndex + 1) % recent.length; renderCarousel(); }
+    prevBtn.addEventListener('click', showPrev); nextBtn.addEventListener('click', showNext);
+    window.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') showPrev(); if (e.key === 'ArrowRight') showNext(); });
 
-    function showPrev() {
-      if (photos.length < 2) return;
-      currentIndex = (currentIndex - 1 + photos.length) % photos.length;
-      renderCarousel();
-    }
-
-    function showNext() {
-      if (photos.length < 2) return;
-      currentIndex = (currentIndex + 1) % photos.length;
-      renderCarousel();
-    }
-
-    prevBtn.addEventListener('click', showPrev);
-    nextBtn.addEventListener('click', showNext);
-
-    // arrow key support
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft') showPrev();
-      if (e.key === 'ArrowRight') showNext();
-    });
-
-    // Handle uploads 
-    uploadForm.addEventListener('submit', function (event) {
-      event.preventDefault();
-      const file = fileInput.files[0];
-      if (!file) {
-        alert('Please select a file to upload.');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        photos.push(e.target.result);
-        currentIndex = photos.length - 1; // jump to the newest
-        renderCarousel();
-      };
-      reader.readAsDataURL(file);
-
-      // If you add a backend later, post the image here with fetch(FormData)
-    });
-
-    // Initial render (empty)
-    renderCarousel();
+    // ---------- Init ----------
+    renderFoldersList();
+    renderFolderSelect();
+    rebuildRecent();
   </script>
 </body>
 </html>

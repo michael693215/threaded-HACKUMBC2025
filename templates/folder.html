@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>threadedfits — Folder</title>
+<style>
+  :root { --purple:#5a2d82; --purple-2:#8a2be2; --bg:#f7f7fb; --card:#fff; --muted:#777; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:#222; }
+
+  /* Header: brand left, Back button right */
+  .nav {
+    background:#fff; border-bottom:1px solid #eee; padding:18px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand { font-weight:700; color:var(--purple); font-size:22px; }
+  .btn { background:#eee; border:none; border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; color:#222; }
+  .btn.primary { background: var(--purple-2); color:#fff; }
+  .btn.danger { background:#e35c5c; color:#fff; }
+
+  /* Wardrobe toolbar BELOW header, left-aligned (like main page) */
+  .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
+  .menu { position:relative; }
+  /* On folder page, Wardrobe is a link back to home (no dropdown) */
+  .menu-btn {
+    display:inline-flex; align-items:center; gap:8px; background: var(--purple-2); color:#fff;
+    border:none; border-radius:8px; padding:8px 12px; cursor:pointer; text-decoration:none;
+  }
+  .menu-btn:hover { filter: brightness(.95); }
+
+  main { max-width:1000px; margin:20px auto; padding:0 16px; }
+  .header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .header h2 { color:var(--purple); margin:0; }
+  .upload { display:flex; align-items:center; gap:10px; }
+  .upload input[type="file"] { padding:8px; border:1px solid #ddd; border-radius:8px; background:#fff; }
+
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:12px; }
+  .tile { background:#fff; border:1px solid #eee; border-radius:10px; overflow:hidden; display:flex; flex-direction:column; }
+  .tile img { width:100%; height:180px; object-fit:cover; background:#fafafa; }
+  .tile .actions { display:flex; gap:8px; padding:8px; justify-content:flex-end; }
+  .hint { color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+  <!-- Brand left, Back button right -->
+  <header class="nav">
+    <div class="brand">Threaded</div>
+    <a class="btn" href="/">← Back</a>
+  </header>
+
+  <!-- Left-hand Wardrobe button in same spot as main page; goes to home -->
+  <div class="toolbar">
+    <nav class="menu">
+      <a class="menu-btn" href="/">Wardrobe</a>
+    </nav>
+  </div>
+
+  <main>
+    <div class="header">
+      <h2 id="folderTitle">Folder</h2>
+      <div class="upload">
+        <input type="file" id="photoUpload" accept="image/*" multiple />
+        <button class="btn primary" id="addBtn">Add to this folder</button>
+      </div>
+    </div>
+    <p class="hint">All uploads here are saved locally to this folder only.</p>
+    <section class="grid" id="grid"></section>
+  </main>
+
+<script>
+  const LS_KEY = 'threadedfits_state_v2';
+  function loadState(){ try{ const raw=localStorage.getItem(LS_KEY); const s=raw?JSON.parse(raw):{folders:[]}; if(!Array.isArray(s.folders)) s.folders=[]; s.folders.forEach(f=>{ f.images=(f.images||[]).map(x=>typeof x==='string'?({src:x,ts:Date.now()}):x); }); return s; }catch{ return {folders:[]}; } }
+  function saveState(s){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
+  function getParam(n){ return new URL(location.href).searchParams.get(n); }
+
+  let state = loadState();
+  const folderId = getParam('id');
+  function getFolder(){ return state.folders.find(f => f.id === folderId) || null; }
+
+  const folderTitle = document.getElementById('folderTitle');
+  const grid = document.getElementById('grid');
+  const fileInput = document.getElementById('photoUpload');
+  const addBtn = document.getElementById('addBtn');
+
+  function render(){
+    const folder = getFolder();
+    if(!folder){ folderTitle.textContent='Folder not found'; grid.innerHTML='<div class="hint">This folder does not exist. Go back and create one.</div>'; addBtn.disabled=true; return; }
+    folderTitle.textContent = folder.name;
+    grid.innerHTML = '';
+    if(!folder.images || !folder.images.length){ const x=document.createElement('div'); x.className='hint'; x.textContent='No items yet. Add some with the button above.'; grid.appendChild(x); return; }
+
+    folder.images.forEach((imgObj, idx) => {
+      const src = typeof imgObj === 'string' ? imgObj : imgObj.src;
+      const tile = document.createElement('div'); tile.className='tile';
+      const img = document.createElement('img'); img.src=src; img.alt=folder.name+' '+(idx+1);
+      const actions = document.createElement('div'); actions.className='actions';
+      const del = document.createElement('button'); del.className='btn danger'; del.textContent='Delete';
+      del.addEventListener('click', () => { const f=getFolder(); if(!f) return; f.images.splice(idx,1); saveState(state); render(); });
+      actions.appendChild(del); tile.appendChild(img); tile.appendChild(actions); grid.appendChild(tile);
+    });
+  }
+
+  function addImagesToFolder(files){
+    const folder=getFolder(); if(!folder){ alert('Folder not found.'); return; }
+    const list=Array.from(files); if(!list.length){ alert('Select one or more images.'); return; }
+    let remain=list.length;
+    list.forEach(file => {
+      const reader=new FileReader();
+      reader.onload = e => { folder.images.push({src:e.target.result, ts:Date.now()}); remain--; if(remain===0){ saveState(state); fileInput.value=''; render(); } };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  addBtn.addEventListener('click', () => addImagesToFolder(fileInput.files));
+  render();
+</script>
+</body>
+</html>
