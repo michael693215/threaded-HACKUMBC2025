@@ -1,13 +1,205 @@
 <!DOCTYPE html>
-<html lang="UTF-8">
-    <head>
-        <meta charset="UTF-8">
-        <title>threadedfits</title>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>threadedfits</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    h1, h2 { color: #5a2d82; }
+    .upload-section, .posts-section {
+      background-color: #fff;
+      margin: 20px auto;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.1);
+      max-width: 700px;
+    }
+    .upload-section form {
+      display: flex; flex-direction: column; align-items: center; gap: 15px;
+    }
+    input[type="file"] {
+      border: 1px solid #ddd; padding: 10px; border-radius: 5px;
+      width: 100%; max-width: 300px; background-color: #f9f9f9;
+    }
+    button[type="submit"] {
+      background-color: #8a2be2; color: #fff; padding: 10px 20px;
+      border: none; border-radius: 5px; cursor: pointer; font-size: 16px;
+      transition: background-color .3s ease;
+    }
+    button[type="submit"]:hover { background-color: #6a1aae; }
 
-        <link rel="stylesheet" href="style.css">
-    </head>
-    <body>
-        <h1>Hello World!</h1>
-    </body>
+    /* Carousel */
+    .carousel {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      height: 420px;
+      margin: 0 auto;
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    .carousel img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none; /* hidden until rendered */
+    }
+    .carousel img.active {
+      display: block;
+    }
+    .nav-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      border: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 22px;
+      line-height: 44px;
+      display: grid;
+      place-items: center;
+      user-select: none;
+    }
+    .nav-btn:hover { background: rgba(0,0,0,0.7); }
+    .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    #prevBtn { left: 10px; }
+    #nextBtn { right: 10px; }
+
+    .counter {
+      position: absolute;
+      bottom: 8px;
+      right: 12px;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to threadedfits!</h1>
+
+  <div class="upload-section">
+    <h2>Upload your fit!</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" id="photoUpload" name="photo" accept="image/*" />
+      <button type="submit">Post Photo</button>
+    </form>
+  </div>
+
+  <div class="posts-section">
+    <h2>Recent Fits</h2>
+
+    <!-- Carousel -->
+    <div class="carousel" id="carousel">
+      <!-- Images inserted dynamically -->
+      <button class="nav-btn" id="prevBtn" aria-label="Previous image">◀</button>
+      <button class="nav-btn" id="nextBtn" aria-label="Next image">▶</button>
+      <div class="counter" id="counter">0 / 0</div>
+    </div>
+  </div>
+
+  <script>
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('photoUpload');
+
+    const carousel = document.getElementById('carousel');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const counter = document.getElementById('counter');
+
+    let photos = [];       // array of data URLs
+    let currentIndex = 0;  // index into photos
+
+    function renderCarousel() {
+      // Remove existing images
+      [...carousel.querySelectorAll('img')].forEach(img => img.remove());
+
+      if (photos.length === 0) {
+        counter.textContent = '0 / 0';
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        return;
+      }
+
+      // Clamp index
+      currentIndex = Math.max(0, Math.min(currentIndex, photos.length - 1));
+
+      // Create the active image
+      const img = document.createElement('img');
+      img.src = photos[currentIndex];
+      img.alt = `Fit ${currentIndex + 1}`;
+      img.classList.add('active');
+      // Insert behind buttons/counter so they stay on top
+      carousel.insertBefore(img, prevBtn);
+
+      // Update controls
+      counter.textContent = `${currentIndex + 1} / ${photos.length}`;
+      const multi = photos.length > 1;
+      prevBtn.disabled = !multi;
+      nextBtn.disabled = !multi;
+    }
+
+    function showPrev() {
+      if (photos.length < 2) return;
+      currentIndex = (currentIndex - 1 + photos.length) % photos.length;
+      renderCarousel();
+    }
+
+    function showNext() {
+      if (photos.length < 2) return;
+      currentIndex = (currentIndex + 1) % photos.length;
+      renderCarousel();
+    }
+
+    prevBtn.addEventListener('click', showPrev);
+    nextBtn.addEventListener('click', showNext);
+
+    // Optional: arrow key support
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') showPrev();
+      if (e.key === 'ArrowRight') showNext();
+    });
+
+    // Handle uploads (client-side preview)
+    uploadForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Please select a file to upload.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        photos.push(e.target.result);
+        currentIndex = photos.length - 1; // jump to the newest
+        renderCarousel();
+      };
+      reader.readAsDataURL(file);
+
+      // If you add a backend later, post the image here with fetch(FormData)
+    });
+
+    // Initial render (empty)
+    renderCarousel();
+  </script>
+</body>
 </html>
-
