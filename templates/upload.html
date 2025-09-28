@@ -1,0 +1,64 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThreadedFits - Upload</title>
+<style>
+body { font-family: Arial; text-align: center; background: #f4f4f4; }
+.upload-section, .posts-section { margin: 20px auto; padding: 25px; max-width: 700px; background: #fff; border-radius: 8px; }
+input[type="file"], select, button { margin: 10px; padding: 10px; }
+img { margin-top: 20px; max-width: 100%; border-radius: 10px; }
+.carousel { display: flex; gap: 10px; overflow-x: auto; }
+.carousel img { width: 150px; height: auto; border-radius: 6px; }
+nav a { margin: 0 10px; text-decoration: none; color: #5a2d82; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>ThreadedFits</h1>
+<nav>
+  <a href="/">Home</a>
+  <a href="/upload">Upload</a>
+  <a href="/about">About</a>
+  <a href="/contact">Contact</a>
+</nav>
+
+<div class="upload-section">
+  <h2>Upload a piece of clothing!</h2>
+  <form action="/upload" method="POST" enctype="multipart/form-data">
+    <input type="file" name="photo" accept="image/*" required>
+    <select name="clothing_class">
+      {% for c in clothing_options %}
+        <option value="{{ c }}">{{ c.capitalize() }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Add to wardrobe</button>
+  </form>
+
+  {% if image_data %}
+    <h3>Transformed Image:</h3>
+    <img src="data:image/{{ image_format }};base64,{{ image_data }}" alt="Transformed Image">
+  {% endif %}
+</div>
+
+<div class="posts-section">
+  <h2>Wardrobe Carousel</h2>
+  {% if images_list %}
+    <div class="carousel">
+      {% for img_data, class_name in images_list %}
+        <div>
+          <img src="data:image/{{ image_format }};base64,{{ img_data }}" alt="{{ class_name }}">
+          <p>{{ class_name.capitalize() }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No images uploaded yet.</p>
+  {% endif %}
+</div>
+
+</body>
+</html>
+
