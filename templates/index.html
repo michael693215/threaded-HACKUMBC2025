@@ -110,9 +110,9 @@
         <input type="file" id="photoUpload" name="photo" accept="image/*" multiple />
         <label for="destFolder">Save to:</label>
         <select id="destFolder"></select>
-        <button type="submit">Add to wardrobe</button>
+        <button type="submit" id="uploadBtn">Add to wardrobe</button>
       </form>
-      <p class="hint">Uploads are saved to the selected folder (stored locally in your browser).</p>
+      <p class="hint">Uploads are saved to the selected folder (stored locally in your browser). <strong>Backgrounds are removed automatically.</strong></p>
     </section>
 
     <section class="posts-section">
@@ -148,18 +148,15 @@
     const wardrobeDrop = document.getElementById('wardrobeDrop');
     const outfitsBtn  = document.getElementById('outfitsBtn');
     const outfitsDrop = document.getElementById('outfitsDrop');
-
     function toggle(el, open) { el.classList.toggle('open', open !== undefined ? open : !el.classList.contains('open')); }
 
-    // Open/close toggles
     wardrobeBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(wardrobeDrop); toggle(outfitsDrop,false); });
     outfitsBtn.addEventListener('click',  (e)=>{ e.stopPropagation(); toggle(outfitsDrop);  toggle(wardrobeDrop,false); });
 
-    // 🔧 FIX: Keep dropdown open when clicking inside it (inputs, buttons)
+    // Keep open when interacting inside
     wardrobeDrop.addEventListener('click', (e)=> e.stopPropagation());
     outfitsDrop.addEventListener('click',  (e)=> e.stopPropagation());
 
-    // Global click closes ONLY if click is outside (because inside is stopped above)
     document.addEventListener('click', ()=>{ toggle(wardrobeDrop,false); toggle(outfitsDrop,false); });
 
     // ---------- Wardrobe list & creation ----------
@@ -201,14 +198,15 @@
       newFolderNameEl.value='';
     }
 
-    // 🔧 Also stop propagation on these so the dropdown doesn't close on click/Enter
     createFolderBtn.addEventListener('click', (e)=>{ e.stopPropagation(); createFolder(newFolderNameEl.value); });
     newFolderNameEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.stopPropagation(); createFolder(newFolderNameEl.value); } });
 
-    // ---------- Upload -> selected folder ----------
+    // ---------- Upload -> selected folder (WITH background removal via /api/remove-bg) ----------
     const uploadForm = document.getElementById('uploadForm');
     const fileInput  = document.getElementById('photoUpload');
     const destFolder = document.getElementById('destFolder');
+    const uploadBtn  = document.getElementById('uploadBtn');
+
     function renderFolderSelect() {
       destFolder.innerHTML = '';
       if (!state.folders.length) {
@@ -222,20 +220,61 @@
         destFolder.appendChild(opt);
       });
     }
-    uploadForm.addEventListener('submit', (e)=>{
+
+    // call backend rembg (10s timeout). Returns data URL or throws.
+    async function removeBg(file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const controller = new AbortController();
+      const t = setTimeout(()=>controller.abort(), 10000); // 10s
+      try {
+        const resp = await fetch('/api/remove-bg', { method:'POST', body: fd, signal: controller.signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        if (!data.data_url) throw new Error('no data_url');
+        return data.data_url;
+      } finally {
+        clearTimeout(t);
+      }
+    }
+
+    function fileToDataURL(file) {
+      return new Promise((res, rej)=>{
+        const r = new FileReader();
+        r.onload = e => res(e.target.result);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+    }
+
+    uploadForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const files=[...fileInput.files]; if(!files.length){ alert('Select image(s).'); return; }
       const fid=destFolder.value; if(!fid){ alert('Create/select a folder first.'); return; }
       const folder=state.folders.find(f=>f.id===fid); if(!folder){ alert('Folder not found.'); return; }
-      let remain=files.length;
-      files.forEach(file=>{
-        const r=new FileReader();
-        r.onload = ev => {
-          folder.images.push({ src: ev.target.result, ts: Date.now() });
-          if(--remain===0){ saveState(state); fileInput.value=''; renderFoldersList(); rebuildRecent(); }
-        };
-        r.readAsDataURL(file);
-      });
+
+      // disable while processing
+      uploadBtn.disabled = true;
+      const originalText = uploadBtn.textContent;
+      uploadBtn.textContent = 'Processing…';
+
+      for (const file of files) {
+        let src;
+        try {
+          src = await removeBg(file);     // try server cleanup
+        } catch {
+          src = await fileToDataURL(file); // fallback to original
+        }
+        folder.images.push({ src, ts: Date.now() });
+      }
+
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = originalText;
+
+      saveState(state);
+      fileInput.value='';
+      renderFoldersList();
+      rebuildRecent();
     });
 
     // ---------- Recently Added carousel ----------

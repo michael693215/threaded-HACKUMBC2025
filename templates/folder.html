@@ -74,7 +74,7 @@
         <button class="btn primary" id="addBtn">Add to this folder</button>
       </div>
     </div>
-    <p class="hint">All uploads here are saved locally to this folder only.</p>
+    <p class="hint">All uploads here are saved locally to this folder only. Backgrounds are removed automatically.</p>
     <section class="grid" id="grid"></section>
   </main>
 
@@ -124,15 +124,40 @@
     });
   }
 
-  function addImagesToFolder(files){
+  // ---- background removal on upload (10s timeout) ----
+  async function removeBg(file){
+    const fd = new FormData();
+    fd.append('file', file);
+    const controller = new AbortController();
+    const t = setTimeout(()=>controller.abort(), 10000);
+    try {
+      const resp = await fetch('/api/remove-bg', { method:'POST', body: fd, signal: controller.signal });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!data.data_url) throw new Error('no data_url');
+      return data.data_url;
+    } finally { clearTimeout(t); }
+  }
+  function fileToDataURL(file){
+    return new Promise((res, rej)=>{
+      const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file);
+    });
+  }
+
+  async function addImagesToFolder(files){
     const folder=getFolder(); if(!folder){ alert('Folder not found.'); return; }
     const list=Array.from(files); if(!list.length){ alert('Select one or more images.'); return; }
-    let remain=list.length;
-    list.forEach(file => {
-      const reader=new FileReader();
-      reader.onload = e => { folder.images.push({src:e.target.result, ts:Date.now()}); remain--; if(remain===0){ saveState(state); fileInput.value=''; render(); } };
-      reader.readAsDataURL(file);
-    });
+    addBtn.disabled = true; const original = addBtn.textContent; addBtn.textContent = 'Processing…';
+    for (const file of list){
+      let src;
+      try { src = await removeBg(file); }
+      catch { src = await fileToDataURL(file); }
+      folder.images.push({src, ts:Date.now()});
+    }
+    saveState(state);
+    fileInput.value='';
+    addBtn.disabled = false; addBtn.textContent = original;
+    render();
   }
 
   addBtn.addEventListener('click', () => addImagesToFolder(fileInput.files));
