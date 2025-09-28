@@ -94,18 +94,18 @@
   </style>
 </head>
 <body>
-  <h1>Welcome to threadedfits!</h1>
+  <h1>Welcome to Threaded!</h1>
 
   <div class="upload-section">
-    <h2>Upload your fit!</h2>
+    <h2>Upload a piece of clothing!</h2>
     <form id="uploadForm" enctype="multipart/form-data">
       <input type="file" id="photoUpload" name="photo" accept="image/*" />
-      <button type="submit">Post Photo</button>
+      <button type="submit">Add to wardrobe</button>
     </form>
   </div>
 
   <div class="posts-section">
-    <h2>Recent Fits</h2>
+    <h2>Recently Added</h2>
 
     <!-- Carousel -->
     <div class="carousel" id="carousel">
@@ -172,13 +172,13 @@
     prevBtn.addEventListener('click', showPrev);
     nextBtn.addEventListener('click', showNext);
 
-    // Optional: arrow key support
+    // arrow key support
     window.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft') showPrev();
       if (e.key === 'ArrowRight') showNext();
     });
 
-    // Handle uploads (client-side preview)
+    // Handle uploads 
     uploadForm.addEventListener('submit', function (event) {
       event.preventDefault();
       const file = fileInput.files[0];
