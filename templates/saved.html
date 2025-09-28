@@ -75,29 +75,41 @@
   document.addEventListener('click', ()=>toggle(outfitsDrop,false));
 
   const LS_V3='threadedfits_state_v3', LS_V2='threadedfits_state_v2';
+
+  function sanitize(s){
+    if(!s || typeof s!=='object') return { folders:[], outfits:[] };
+    if(!Array.isArray(s.folders)) s.folders=[];
+    if(!Array.isArray(s.outfits)) s.outfits=[];
+    return s;
+  }
+
   function loadState(){
-    try{ const r3=localStorage.getItem(LS_V3); if(r3){ return JSON.parse(r3); } }catch{}
-    try{ const r2=localStorage.getItem(LS_V2); if(r2){ const s2=JSON.parse(r2); const s3={folders:s2.folders||[], outfits:[]}; localStorage.setItem(LS_V3, JSON.stringify(s3)); return s3; } }catch{}
+    try{ const r3=localStorage.getItem(LS_V3); if(r3){ return sanitize(JSON.parse(r3)); } }catch{}
+    try{ const r2=localStorage.getItem(LS_V2); if(r2){ const s2=JSON.parse(r2); const s3={folders:s2.folders||[], outfits:[]}; localStorage.setItem(LS_V3, JSON.stringify(s3)); return sanitize(s3); } }catch{}
     const empty={folders:[], outfits:[]}; localStorage.setItem(LS_V3, JSON.stringify(empty)); return empty;
   }
-  function saveState(s){ localStorage.setItem(LS_V3, JSON.stringify(s)); }
+  function saveState(s){ try{ localStorage.setItem(LS_V3, JSON.stringify(s)); }catch{} }
 
   let state = loadState();
 
   const list = document.getElementById('list');
   const emptyMsg = document.getElementById('emptyMsg');
 
-  function fmtTime(ts){ const d=new Date(ts); return d.toLocaleString(); }
+  function fmtTime(ts){ const d=new Date(ts||Date.now()); return d.toLocaleString(); }
 
   function render(){
+    // Always refresh from storage (handles fresh navigation from Create page)
+    state = loadState();
+
     list.innerHTML='';
     const outfits = state.outfits || [];
     emptyMsg.style.display = outfits.length ? 'none' : 'block';
+
     outfits.forEach(o=>{
       const card=document.createElement('div'); card.className='card'; card.tabIndex=0;
       const img=document.createElement('img'); img.className='preview'; img.src = o.preview || ''; if (!o.preview) img.alt='No preview available';
       const name=document.createElement('div'); name.className='name'; name.textContent=o.name||'Untitled';
-      const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${o.items?.length||0} items • ${fmtTime(o.createdAt||Date.now())}`;
+      const meta=document.createElement('div'); meta.className='meta'; meta.textContent=`${o.items?.length||0} items • ${fmtTime(o.createdAt)}`;
       card.appendChild(img); card.appendChild(name); card.appendChild(meta);
       card.addEventListener('click', ()=>{
         document.querySelectorAll('.card').forEach(c=>c.classList.remove('selected'));
@@ -110,6 +122,11 @@
       list.appendChild(card);
     });
   }
+
+  // Re-render if storage changes in another tab/page, or on refocus
+  window.addEventListener('storage', (e)=>{ if(e.key===LS_V3) render(); });
+  window.addEventListener('focus', render);
+  document.addEventListener('DOMContentLoaded', render);
 
   render();
 </script>

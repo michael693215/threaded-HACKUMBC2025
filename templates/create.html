@@ -8,6 +8,8 @@
   :root { --purple:#5a2d82; --purple-2:#8a2be2; --bg:#f7f7fb; --card:#fff; --muted:#777; }
   * { box-sizing:border-box; }
   body { margin:0; font-family: system-ui, -apple-system, Arial, sans-serif; background:var(--bg); color:#222; }
+
+  /* Top nav + toolbars */
   .nav { background:#fff; border-bottom:1px solid #eee; padding:18px 16px; }
   .brand { font-weight:700; color:var(--purple); font-size:22px; }
   .toolbar { padding:10px 16px; display:flex; align-items:flex-start; gap:12px; }
@@ -26,22 +28,42 @@
   .dropdown.open { display:block; }
   .menu-list a { display:block; padding:8px 10px; border-radius:8px; text-decoration:none; color:#222; }
   .menu-list a:hover { background:#f2f2f7; }
+
+  /* Layout */
   .layout { display:grid; grid-template-columns: 1fr 320px; gap:14px; max-width:1200px; margin:16px auto; padding:0 16px; }
+
+  /* Canvas area */
   .canvas-wrap { background:#ededf3; border:1px dashed #cfcfe8; border-radius:12px; min-height:560px; position:relative; overflow:hidden; }
   .canvas-toolbar { display:flex; gap:10px; padding:8px; align-items:center; }
   .save-btn { background:var(--purple-2); color:#fff; border:none; border-radius:8px; padding:8px 12px; cursor:pointer; }
+  .save-btn[disabled] { opacity:.6; cursor:not-allowed; }
   .save-btn:hover { filter:brightness(.95); }
   .hint { color:var(--muted); font-size:12px; }
-  .item { position:absolute; touch-action:none; border:1px solid transparent; border-radius:10px; box-shadow: 0 4px 14px rgba(0,0,0,.12); cursor:grab; user-select:none; background:transparent; }
+
+  /* Draggable items */
+  .item { position:absolute; touch-action:none; border:1px solid transparent; border-radius:10px;
+          box-shadow: 0 4px 14px rgba(0,0,0,.12); cursor:grab; user-select:none; background:transparent; }
   .item.dragging { cursor:grabbing; }
   .item.selected { border-color: rgba(138,43,226,.6); }
   .item img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; border-radius:10px; }
-  .drag-remove { position:absolute; top:-10px; right:-10px; background:#000; color:#fff; border:none; border-radius:999px; width:22px; height:22px; font-size:14px; line-height:22px; text-align:center; cursor:pointer; opacity:.85; }
+  .drag-remove { position:absolute; top:-10px; right:-10px; background:#000; color:#fff; border:none;
+                 border-radius:999px; width:22px; height:22px; font-size:14px; line-height:22px; text-align:center; cursor:pointer; opacity:.85; }
+
+  /* Sidebar */
   .sidebar { background:#fff; border:1px solid #eee; border-radius:12px; padding:10px; overflow:auto; max-height:74vh; }
-  .folder-block { margin-bottom:12px; }
-  .folder-title { font-weight:700; color:var(--purple); margin:6px 0; }
+  .sidebar-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .sidebar-title { font-weight:700; color:var(--purple); }
+  .sidebar-back { background:#eee; border:none; border-radius:8px; padding:6px 8px; cursor:pointer; }
+  .folders-list { display:flex; flex-direction:column; gap:8px; }
+  .folder-row { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                border:1px solid #eee; border-radius:10px; padding:10px; cursor:pointer; background:#fafafa; }
+  .folder-row:hover { background:#f2f2f7; }
+  .folder-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .folder-count { color:var(--muted); font-size:12px; }
+
   .thumbs { display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; }
   .thumb { width:100%; aspect-ratio:1/1; object-fit:cover; background:#fafafa; border:1px solid #eee; border-radius:8px; cursor:pointer; }
+  .empty { color:var(--muted); }
 </style>
 </head>
 <body>
@@ -73,38 +95,125 @@
   </div>
 
 <script>
+  /* ---------- Menus ---------- */
   const outfitsBtn = document.getElementById('outfitsBtn');
   const outfitsDrop = document.getElementById('outfitsDrop');
   function toggle(el, open){ el.classList.toggle('open', open!==undefined?open:!el.classList.contains('open')); }
   outfitsBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(outfitsDrop); });
+  outfitsDrop.addEventListener('click', (e)=> e.stopPropagation());
   document.addEventListener('click', ()=>toggle(outfitsDrop,false));
 
+  /* ---------- State ---------- */
   const LS_V3='threadedfits_state_v3', LS_V2='threadedfits_state_v2';
-  function loadState(){ try{ const r3=localStorage.getItem(LS_V3); if(r3){ const s=JSON.parse(r3); sanitize(s); return s; } }catch{} try{ const r2=localStorage.getItem(LS_V2); if(r2){ const s2=JSON.parse(r2); const s3={folders:s2.folders||[], outfits:[]}; sanitize(s3); saveState(s3); return s3; } }catch{} const empty={folders:[], outfits:[]}; saveState(empty); return empty; }
-  function sanitize(s){ if(!Array.isArray(s.folders)) s.folders=[]; if(!Array.isArray(s.outfits)) s.outfits=[]; s.folders.forEach(f=>{ f.images=(f.images||[]).map(x=>typeof x==='string'?({src:x,ts:Date.now()}):x); }); }
-  function saveState(s){ localStorage.setItem(LS_V3, JSON.stringify(s)); }
+  function loadState(){
+    try{ const r3=localStorage.getItem(LS_V3); if(r3){ const s=JSON.parse(r3); sanitize(s); return s; } }catch{}
+    try{ const r2=localStorage.getItem(LS_V2); if(r2){ const s2=JSON.parse(r2); const s3={folders:s2.folders||[], outfits:[]}; sanitize(s3); saveState(s3); return s3; } }catch{}
+    const empty={folders:[], outfits:[]}; saveState(empty); return empty;
+  }
+  function sanitize(s){
+    if(!Array.isArray(s.folders)) s.folders=[];
+    if(!Array.isArray(s.outfits)) s.outfits=[];
+    s.folders.forEach(f=>{ f.images=(f.images||[]).map(x=>typeof x==='string'?({src:x,ts:Date.now()}):x); });
+  }
+  function saveState(s){
+    try {
+      localStorage.setItem(LS_V3, JSON.stringify(s));
+      return true;
+    } catch (e) {
+      alert('Unable to save outfit (storage limit?). Try removing older outfits.\n\nDetails: '+e);
+      return false;
+    }
+  }
   function uid(){ return 'o_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
   let state = loadState();
 
+  // Re-sync if another tab/page modifies localStorage (e.g., uploading on / or /folder)
+  window.addEventListener('storage', (e)=>{ if(e.key===LS_V3){ state = loadState(); renderSidebar(); } });
+  window.addEventListener('focus', ()=>{ state = loadState(); renderSidebar(); });
+
+  /* ---------- Sidebar (Folders → Folder thumbnails) ---------- */
   const sidebar = document.getElementById('sidebar');
+  let currentFolderId = null; // null = show folders list
+
   function renderSidebar(){
-    sidebar.innerHTML='';
-    if(!state.folders.length){ sidebar.innerHTML='<div class="hint">No folders yet. Add photos first.</div>'; return; }
-    state.folders.forEach(f=>{
-      const block=document.createElement('div'); block.className='folder-block';
-      const title=document.createElement('div'); title.className='folder-title'; title.textContent=f.name;
-      const grid=document.createElement('div'); grid.className='thumbs';
-      (f.images||[]).forEach(img=>{
-        const t=document.createElement('img'); t.className='thumb'; t.src=img.src||img; t.alt=f.name;
-        t.addEventListener('click', ()=> addItemToCanvas(t.src));
-        grid.appendChild(t);
+    sidebar.innerHTML = '';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'sidebar-header';
+
+    const title = document.createElement('div');
+    title.className = 'sidebar-title';
+
+    const backBtn = document.createElement('button');
+    backBtn.className = 'sidebar-back';
+    backBtn.textContent = '← Back';
+    backBtn.addEventListener('click', ()=>{ currentFolderId = null; renderSidebar(); });
+
+    // Decide view
+    if (!state.folders.length) {
+      title.textContent = 'Wardrobe';
+      header.appendChild(title);
+      sidebar.appendChild(header);
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'No folders yet. Go to Wardrobe (Home) to create and upload items.';
+      sidebar.appendChild(empty);
+      return;
+    }
+
+    if (!currentFolderId) {
+      // Root: list folders
+      title.textContent = 'Wardrobe';
+      header.appendChild(title);
+      sidebar.appendChild(header);
+
+      const list = document.createElement('div');
+      list.className = 'folders-list';
+
+      state.folders.forEach(f=>{
+        const row = document.createElement('div');
+        row.className = 'folder-row';
+        const name = document.createElement('div'); name.className='folder-name'; name.textContent = f.name;
+        const count = document.createElement('div'); count.className='folder-count'; count.textContent = (f.images?.length||0)+' items';
+        row.appendChild(name); row.appendChild(count);
+        row.addEventListener('click', ()=>{ currentFolderId = f.id; renderSidebar(); });
+        list.appendChild(row);
       });
-      block.appendChild(title); block.appendChild(grid); sidebar.appendChild(block);
+
+      sidebar.appendChild(list);
+      return;
+    }
+
+    // Inside a folder: thumbnails
+    const folder = state.folders.find(x=>x.id===currentFolderId);
+    if (!folder) { currentFolderId = null; renderSidebar(); return; }
+
+    title.textContent = folder.name;
+    header.appendChild(title);
+    header.appendChild(backBtn);
+    sidebar.appendChild(header);
+
+    if (!folder.images || !folder.images.length) {
+      const empty = document.createElement('div'); empty.className='empty'; empty.textContent='No items in this folder.';
+      sidebar.appendChild(empty);
+      return;
+    }
+
+    const grid = document.createElement('div'); grid.className='thumbs';
+    (folder.images||[]).forEach(img=>{
+      const src = img.src || img;
+      const t = document.createElement('img'); t.className='thumb'; t.src=src; t.alt=folder.name;
+      t.addEventListener('click', ()=> addItemToCanvas(src));
+      grid.appendChild(t);
     });
+    sidebar.appendChild(grid);
   }
 
+  /* ---------- Canvas interactions ---------- */
   const canvas = document.getElementById('canvas');
   let zCounter = 10;
+
   function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
   function setItemPos(el, x, y){
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
@@ -124,41 +233,125 @@
     document.querySelectorAll('#canvas .item').forEach(i=>i.classList.remove('selected'));
     el.classList.add('selected'); el.style.zIndex=(++zCounter).toString();
   }
+
   function enableDrag(el){
     let dragging=false, sx=0, sy=0, startX=0, startY=0;
-    el.addEventListener('pointerdown', (e)=>{ selectItem(el); dragging=true; sx=e.clientX; sy=e.clientY; startX=parseFloat(el.dataset.x||'0'); startY=parseFloat(el.dataset.y||'0'); el.classList.add('dragging'); el.setPointerCapture(e.pointerId); });
-    el.addEventListener('pointermove', (e)=>{ if(!dragging) return; const dx=e.clientX-sx, dy=e.clientY-sy; setItemPos(el, startX+dx, startY+dy); });
-    el.addEventListener('pointerup', (e)=>{ dragging=false; el.classList.remove('dragging'); el.releasePointerCapture(e.pointerId); });
-    el.addEventListener('wheel', (e)=>{ if(!e.shiftKey) return; e.preventDefault(); const baseW=parseFloat(el.dataset.baseW), baseH=parseFloat(el.dataset.baseH); let scale=parseFloat(el.dataset.scale||'1'); scale *= (e.deltaY<0?1.05:0.95); scale = clamp(scale, 0.3, 3); el.dataset.scale=scale; setItemSize(el, baseW*scale, baseH*scale, true); }, { passive:false });
+
+    // Don’t start dragging when pressing the X button
+    el.addEventListener('pointerdown', (e)=>{
+      if (e.target.closest('.drag-remove')) return;
+      selectItem(el);
+      dragging=true; sx=e.clientX; sy=e.clientY;
+      startX=parseFloat(el.dataset.x||'0'); startY=parseFloat(el.dataset.y||'0');
+      el.classList.add('dragging'); el.setPointerCapture(e.pointerId);
+    });
+
+    el.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      const dx=e.clientX-sx, dy=e.clientY-sy;
+      setItemPos(el, startX+dx, startY+dy);
+    });
+
+    el.addEventListener('pointerup', (e)=>{
+      dragging=false;
+      el.classList.remove('dragging');
+      try { el.releasePointerCapture(e.pointerId); } catch {}
+    });
+
+    // Resize with Shift + wheel
+    el.addEventListener('wheel', (e)=>{
+      if(!e.shiftKey) return;
+      e.preventDefault();
+      const baseW=parseFloat(el.dataset.baseW), baseH=parseFloat(el.dataset.baseH);
+      let scale=parseFloat(el.dataset.scale||'1');
+      scale *= (e.deltaY<0?1.05:0.95);
+      scale = clamp(scale, 0.3, 3);
+      el.dataset.scale=scale;
+      setItemSize(el, baseW*scale, baseH*scale, true);
+    }, { passive:false });
   }
+
   function addItemToCanvas(src){
     const wrap=document.createElement('div'); wrap.className='item'; wrap.dataset.scale='1';
     const img=new Image(); img.draggable=false; img.src=src;
-    img.onload = ()=>{ const baseW = clamp(img.naturalWidth || 180, 120, 220); const ratio=(img.naturalHeight||baseW)/(img.naturalWidth||baseW); const baseH=Math.round(baseW*ratio); wrap.dataset.baseW=baseW; wrap.dataset.baseH=baseH; wrap.style.width=baseW+'px'; wrap.style.height=baseH+'px'; const x=(canvas.clientWidth-baseW)/2+(Math.random()*40-20); const y=(canvas.clientHeight-baseH)/2+(Math.random()*40-20); setItemPos(wrap, x, y); };
-    const del=document.createElement('button'); del.className='drag-remove'; del.textContent='×'; del.addEventListener('click',(e)=>{ e.stopPropagation(); wrap.remove(); });
-    wrap.appendChild(img); wrap.appendChild(del); enableDrag(wrap); canvas.appendChild(wrap);
+
+    img.onload = ()=>{
+      const baseW = clamp(img.naturalWidth || 180, 120, 220);
+      const ratio  = (img.naturalHeight||baseW)/(img.naturalWidth||baseW);
+      const baseH  = Math.round(baseW*ratio);
+      wrap.dataset.baseW=baseW; wrap.dataset.baseH=baseH;
+      wrap.style.width=baseW+'px'; wrap.style.height=baseH+'px';
+      const x=(canvas.clientWidth-baseW)/2+(Math.random()*40-20);
+      const y=(canvas.clientHeight-baseH)/2+(Math.random()*40-20);
+      setItemPos(wrap, x, y);
+    };
+
+    const del=document.createElement('button');
+    del.className='drag-remove';
+    del.textContent='×';
+    del.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); e.preventDefault(); }, { passive:false });
+    del.addEventListener('click',(e)=>{ e.stopPropagation(); if (wrap.parentNode === canvas) canvas.removeChild(wrap); });
+
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    enableDrag(wrap);
+    canvas.appendChild(wrap);
   }
 
+  /* ---------- Save outfit ---------- */
   async function makePreview(items){
     const cw=canvas.clientWidth, ch=canvas.clientHeight, maxW=480, scale=maxW/cw, tw=Math.round(maxW), th=Math.round(ch*scale);
-    const off=document.createElement('canvas'); off.width=tw; off.height=th; const ctx=off.getContext('2d'); ctx.fillStyle='#ededf3'; ctx.fillRect(0,0,tw,th);
+    const off=document.createElement('canvas'); off.width=tw; off.height=th;
+    const ctx=off.getContext('2d'); ctx.fillStyle='#ededf3'; ctx.fillRect(0,0,tw,th);
     const loads = items.map(it=>new Promise(res=>{ const im=new Image(); im.onload=()=>res({im,it}); im.src=it.src; }));
     const all = await Promise.all(loads);
     all.forEach(({im,it})=>{ ctx.drawImage(im, it.x*scale, it.y*scale, it.w*scale, it.h*scale); });
     return off.toDataURL('image/jpeg', 0.85);
   }
 
+  function clearCanvas(){
+    // robustly remove all children
+    while (canvas.firstChild) canvas.removeChild(canvas.firstChild);
+  }
+
   const saveBtn=document.getElementById('saveOutfitBtn');
   saveBtn.addEventListener('click', async ()=>{
     const name=prompt('Name this outfit:','My Outfit'); if(!name) return;
-    const items=[...canvas.querySelectorAll('.item')].map(w=>{ const img=w.querySelector('img'); if(!img) return null; const baseW=parseFloat(w.dataset.baseW), baseH=parseFloat(w.dataset.baseH), scale=parseFloat(w.dataset.scale||'1'); return { src:img.src, x:parseFloat(w.dataset.x||'0'), y:parseFloat(w.dataset.y||'0'), w:baseW*scale, h:baseH*scale, scale, baseW, baseH }; }).filter(Boolean);
-    const preview = await makePreview(items);
-    const outfit={ id: uid(), name:name.trim(), items, preview, createdAt: Date.now() };
-    state.outfits = state.outfits || []; state.outfits.unshift(outfit); saveState(state);
-    if(confirm('Saved! Go to Saved Outfits now?')) location.href='/outfits/saved';
+
+    const items=[...canvas.querySelectorAll('.item')].map(w=>{
+      const img=w.querySelector('img'); if(!img) return null;
+      const baseW=parseFloat(w.dataset.baseW), baseH=parseFloat(w.dataset.baseH), scale=parseFloat(w.dataset.scale||'1');
+      return { src:img.src, x:parseFloat(w.dataset.x||'0'), y:parseFloat(w.dataset.y||'0'),
+               w:baseW*scale, h:baseH*scale, scale, baseW, baseH };
+    }).filter(Boolean);
+
+    if (!items.length) { alert('Add at least one item to the canvas before saving.'); return; }
+
+    saveBtn.disabled = true; // prevent double-clicks
+
+    try {
+      const preview = await makePreview(items);
+      const outfit={ id: uid(), name:name.trim(), items, preview, createdAt: Date.now() };
+
+      state.outfits = state.outfits || [];
+      state.outfits.unshift(outfit);
+      const ok = saveState(state);
+      if (!ok) return;
+
+      // Clear canvas immediately after successful save
+      clearCanvas();
+
+      if(confirm('Saved! Go to Saved Outfits now?')) {
+        location.href='/outfits/saved';
+      }
+    } catch (e) {
+      alert('Failed to save outfit: ' + e);
+    } finally {
+      saveBtn.disabled = false;
+    }
   });
 
-  function renderSidebar(){ /* same as above */ }
+  /* ---------- Init ---------- */
   renderSidebar();
 </script>
 </body>
